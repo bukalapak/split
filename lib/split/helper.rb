@@ -40,6 +40,7 @@ module Split
 
     def reset!(experiment)
       ab_user.delete(experiment.key)
+      ab_user.delete(experiment.scored_key)
     end
 
     def finish_experiment(experiment, options = {:reset => true})
@@ -77,11 +78,13 @@ module Split
     end
 
     def score_experiment(experiment, score_name, score_value)
-      return true if experiment.has_winner? || ab_user[experiment.scored_key(score_name)]
+      already_scored = ab_user[experiment.scored_key] && ab_user[experiment.scored_key][score_name.to_s]
+      return true if experiment.has_winner? || already_scored
       alternative_name = ab_user[experiment.key]
       trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
-      ab_user[experiment.scored_key(score_name)] = true
+      ab_user[experiment.scored_key] ||= {}
+      ab_user[experiment.scored_key][score_name.to_s] = true
     end
 
     def ab_score(score_name, score_value = 1)

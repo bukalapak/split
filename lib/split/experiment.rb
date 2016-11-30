@@ -41,6 +41,10 @@ module Split
       "#{key}:finished"
     end
 
+    def self.scored_key(key)
+      "#{key}:scored"
+    end
+
     def set_alternatives_and_options(options)
       self.alternatives = options[:alternatives]
       self.goals = options[:goals]
@@ -220,8 +224,8 @@ module Split
       self.class.finished_key(key)
     end
 
-    def scored_key(score_name)
-      "#{key}:#{score_name}:scored"
+    def scored_key
+      self.class.scored_key(key)
     end
 
     def metadata_key

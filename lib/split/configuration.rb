@@ -132,7 +132,6 @@ module Split
 
     # TODO: dry (with #metrics)
     def scores
-      return @scores if defined? @scores
       @scores = {}
       if self.experiments
         self.experiments.each do |experiment_name, experiment_data|
@@ -140,7 +139,7 @@ module Split
           scores.each do |score_name|
             if score_name
               @scores[score_name.to_sym] ||= []
-              @scores[score_name.to_sym] << Split::Experiment.new(experiment_name)
+              @scores[score_name.to_sym] << Split::ExperimentCatalog.find(experiment_name)
             end
           end
         end

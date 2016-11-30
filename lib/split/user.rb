@@ -14,6 +14,7 @@ module Split
         if experiment.nil? || experiment.has_winner? || experiment.start_time.nil?
           user.delete key
           user.delete Experiment.finished_key(key)
+          user.delete Experiment.scored_key(key)
         end
       end
     end
@@ -49,7 +50,7 @@ module Split
     private
 
     def keys_without_experiment(keys, experiment_key)
-      keys.reject { |k| k.match(Regexp.new("^#{experiment_key}(:finished|:\\w+:scored)?$")) }
+      keys.reject { |k| k.match(Regexp.new("^#{experiment_key}(:finished|:scored)?$")) }
     end
 
     def keys_without_finished(keys)
