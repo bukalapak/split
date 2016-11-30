@@ -166,7 +166,7 @@ module Split
           goals: value_for(settings, :goals),
           metadata: value_for(settings, :metadata),
           algorithm: value_for(settings, :algorithm),
-          resettable: value_for(settings, :resettable),
+          resettable: value_for(settings, :resettable) || true,
           scores: value_for(settings, :scores) || []
         }
 
