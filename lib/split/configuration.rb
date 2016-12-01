@@ -147,6 +147,11 @@ module Split
       @scores
     end
 
+    DEFAULT_OPTIONS = {
+      resettable: true,
+      scores: []
+    }.freeze
+
     def normalized_experiments
       return nil if @experiments.nil?
 
@@ -165,11 +170,12 @@ module Split
           goals: value_for(settings, :goals),
           metadata: value_for(settings, :metadata),
           algorithm: value_for(settings, :algorithm),
-          resettable: value_for(settings, :resettable).nil? && true,
-          scores: value_for(settings, :scores) || []
+          resettable: value_for(settings, :resettable),
+          scores: value_for(settings, :scores)
         }
 
         experiment_data.each do |name, value|
+          value = DEFAULT_OPTIONS[name] if value.nil?
           experiment_config[experiment_name.to_sym][name] = value if value != nil
         end
       end

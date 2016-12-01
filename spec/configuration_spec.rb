@@ -68,7 +68,8 @@ describe Split::Configuration do
   it "should allow loading of experiment using experment_for" do
     @config.experiments = {:my_experiment=>
         {:alternatives=>["control_opt", "other_opt"], :metric=>:my_metric}}
-    expect(@config.experiment_for(:my_experiment)).to eq({:alternatives=>["control_opt", ["other_opt"]]})
+    default_options = @config.class::DEFAULT_OPTIONS
+    expect(@config.experiment_for(:my_experiment)).to eq(default_options.merge(:alternatives=>["control_opt", ["other_opt"]]))
   end
 
   context "when experiments are defined via YAML" do
@@ -87,7 +88,8 @@ describe Split::Configuration do
         end
 
         it 'should normalize experiments' do
-          expect(@config.normalized_experiments).to eq({:my_experiment=>{:resettable=>false,:alternatives=>["Control Opt", ["Alt One", "Alt Two"]]}})
+          default_options = @config.class::DEFAULT_OPTIONS
+          expect(@config.normalized_experiments).to eq({:my_experiment=>default_options.merge(:resettable=>false,:alternatives=>["Control Opt", ["Alt One", "Alt Two"]])})
         end
       end
 
@@ -143,8 +145,9 @@ describe Split::Configuration do
         end
 
         it "should normalize experiments" do
-          expect(@config.normalized_experiments).to eq({:my_experiment=>{:resettable=>false,:alternatives=>[{"Control Opt"=>0.67},
-            [{"Alt One"=>0.1}, {"Alt Two"=>0.23}]]}, :another_experiment=>{:alternatives=>["a", ["b"]]}})
+          default_options = @config.class::DEFAULT_OPTIONS
+          expect(@config.normalized_experiments).to eq({:my_experiment=>default_options.merge(:resettable=>false,:alternatives=>[{"Control Opt"=>0.67},
+            [{"Alt One"=>0.1}, {"Alt Two"=>0.23}]]), :another_experiment=>default_options.merge(:alternatives=>["a", ["b"]])})
         end
 
         it "should recognize metrics" do
@@ -171,7 +174,8 @@ describe Split::Configuration do
         end
 
         it "should normalize experiments" do
-          expect(@config.normalized_experiments).to eq({:my_experiment=>{:resettable=>false,:alternatives=>["Control Opt", ["Alt One", "Alt Two"]]}})
+          default_options = @config.class::DEFAULT_OPTIONS
+          expect(@config.normalized_experiments).to eq({:my_experiment=>default_options.merge(:resettable=>false,:alternatives=>["Control Opt", ["Alt One", "Alt Two"]])})
         end
       end
 
@@ -209,7 +213,8 @@ describe Split::Configuration do
       }
     }
 
-    expect(@config.normalized_experiments).to eq({:my_experiment=>{:alternatives=>[{"control_opt"=>0.67}, [{"second_opt"=>0.1}, {"third_opt"=>0.23}]]}})
+    default_options = @config.class::DEFAULT_OPTIONS
+    expect(@config.normalized_experiments).to eq({:my_experiment=>default_options.merge(:alternatives=>[{"control_opt"=>0.67}, [{"second_opt"=>0.1}, {"third_opt"=>0.23}]])})
   end
 
   context 'redis_url configuration [DEPRECATED]' do

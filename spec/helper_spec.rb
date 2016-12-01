@@ -397,7 +397,7 @@ describe Split::Helper do
       expect(ab_user[experiment.finished_key]).to eq(true)
     end
 
-    it 'DOES NOT pass reset option' do
+    it 'should default resettable to true if nothing provided' do
       Split.configuration.experiments = {
         :my_experiment => {
           :alternatives => ["one", "two"],
