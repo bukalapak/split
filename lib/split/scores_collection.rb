@@ -26,8 +26,10 @@ module Split
     end
 
     def validate!
-      unless @scores.nil? || @scores.kind_of?(Array)
-        raise ArgumentError, 'Scores must be an array'
+      return true if @scores.nil?
+      raise ArgumentError, 'Scores must be an array' unless @scores.is_a? Array
+      @scores.each do |score|
+        raise ArgumentError, 'Score muse be a string' unless score.is_a? String
       end
     end
 

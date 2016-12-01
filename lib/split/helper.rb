@@ -30,6 +30,7 @@ module Split
         alternative ||= control_variable(experiment.control)
       end
 
+
       if block_given?
         metadata = trial ? trial.metadata : {}
         yield(alternative, metadata)
@@ -101,7 +102,7 @@ module Split
     def ab_score_experiment(experiment_name, alternative_name, score_name, score_value = 1)
       return if exclude_visitor? || Split.configuration.disabled?
       experiment = ExperimentCatalog.find(experiment_name)
-      return unless experiment.scores.include?(score_name)
+      return unless experiment.scores.include?(score_name.to_s)
       trial = Trial.new(experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
     rescue => e
