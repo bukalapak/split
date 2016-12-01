@@ -396,6 +396,20 @@ describe Split::Helper do
       expect(ab_user[experiment.key]).to eq(alternative)
       expect(ab_user[experiment.finished_key]).to eq(true)
     end
+
+    it 'DOES NOT pass reset option' do
+      Split.configuration.experiments = {
+        :my_experiment => {
+          :alternatives => ["one", "two"],
+        }
+      }
+      ab_test(:my_experiment)
+      experiment = Split::ExperimentCatalog.find :my_experiment
+
+      ab_finished :my_experiment
+      expect(ab_user[experiment.key]).to be_nil
+      expect(ab_user[experiment.finished_key]).to be_nil
+    end
   end
 
   context "finished with metric name" do
