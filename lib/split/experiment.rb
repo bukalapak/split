@@ -11,7 +11,8 @@ module Split
     attr_accessor :scores
 
     DEFAULT_OPTIONS = {
-      :resettable => true
+      :resettable => true,
+      :scores => []
     }
 
     def initialize(name, options = {})
