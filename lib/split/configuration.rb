@@ -138,8 +138,8 @@ module Split
           scores = value_for(experiment_data, :scores) rescue nil
           scores.each do |score_name|
             if score_name
-              @scores[score_name.to_sym] ||= []
-              @scores[score_name.to_sym] << Split::ExperimentCatalog.find(experiment_name)
+              @scores[score_name] ||= []
+              @scores[score_name] << Split::ExperimentCatalog.find(experiment_name)
             end
           end
         end

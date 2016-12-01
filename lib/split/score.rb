@@ -16,7 +16,6 @@ module Split
     end
 
     def self.find(name)
-      name = name.intern if name.is_a?(String)
       score = load_from_configuration(name)
       score
     end
@@ -28,7 +27,9 @@ module Split
     end
 
     def self.possible_experiments(score_name)
-      find(score_name).experiments
+      score = find(score_name)
+      return [] if score.nil?
+      score.experiments
     end
   end # Metric
 end # Split

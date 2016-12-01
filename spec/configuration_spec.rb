@@ -65,6 +65,18 @@ describe Split::Configuration do
     expect(@config.metrics.keys).to eq([:my_metric])
   end
 
+  it 'should load the scores' do
+    @config.experiments = {
+      my_experiment: {
+        alternatives: ['alt1', 'alt2'],
+        scores: ['score1']
+      }
+    }
+
+    expect(@config.scores).not_to be_nil
+    expect(@config.scores.keys).to eq(['score1'])
+  end
+
   it "should allow loading of experiment using experment_for" do
     @config.experiments = {:my_experiment=>
         {:alternatives=>["control_opt", "other_opt"], :metric=>:my_metric}}
@@ -136,23 +148,49 @@ describe Split::Configuration do
                   percent: 23
               resettable: false
               metric: my_metric
+              scores:
+                - score1
+                - score2
             another_experiment:
               alternatives:
                 - a
                 - b
+              scores:
+                - score1
+                - score3
             eos
           @config.experiments = YAML.load(experiments_yaml)
         end
 
         it "should normalize experiments" do
           default_options = @config.class::DEFAULT_OPTIONS
-          expect(@config.normalized_experiments).to eq({:my_experiment=>default_options.merge(:resettable=>false,:alternatives=>[{"Control Opt"=>0.67},
-            [{"Alt One"=>0.1}, {"Alt Two"=>0.23}]]), :another_experiment=>default_options.merge(:alternatives=>["a", ["b"]])})
+          expect(@config.normalized_experiments).to eq(
+            my_experiment: default_options.merge(
+              resettable: false,
+              alternatives: [
+                {"Control Opt" => 0.67},
+                [
+                  {"Alt One" => 0.1},
+                  {"Alt Two" => 0.23}
+                ]
+              ],
+              scores: ['score1', 'score2']
+            ),
+            another_experiment: default_options.merge(
+              alternatives: ["a", ["b"]],
+              scores: ['score1', 'score3']
+            )
+          )
         end
 
         it "should recognize metrics" do
           expect(@config.metrics).not_to be_nil
           expect(@config.metrics.keys).to eq([:my_metric])
+        end
+
+        it 'should recognize scores' do
+          expect(@config.scores).not_to be_nil
+          expect(@config.scores.keys).to eq(['score1', 'score2', 'score3'])
         end
 
       end
