@@ -93,6 +93,20 @@ module Split
       experiments.each do |experiment|
         score_experiment(experiment, score_name, score_value)
       end
+    rescue => e
+      raise unless Split.configuration.db_failover
+      Split.configuration.db_failover_on_db_error.call(e)
+    end
+
+    def ab_score_experiment(experiment_name, alternative_name, score_name, score_value = 1)
+      return if exclude_visitor? || Split.configuration.disabled?
+      experiment = ExperimentCatalog.find(experiment_name)
+      return unless experiment.scores.include?(score_name)
+      trial = Trial.new(experiment: experiment, alternative: alternative_name)
+      trial.score!(score_name, score_value)
+    rescue => e
+      raise unless Split.configuration.db_failover
+      Split.configuration.db_failover_on_db_error.call(e)
     end
 
     def override_present?(experiment_name)
