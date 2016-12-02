@@ -13,14 +13,61 @@ describe Split::Alternative do
   }
 
   let!(:experiment) {
-    Split::ExperimentCatalog.find_or_create({"basket_text" => ["purchase", "refund"]}, "Basket", "Cart")
+    Split.configuration.experiments = {
+      basket_text: {
+        goals: ['purchase', 'refund'],
+        alternatives: ['Basket', 'Cart'],
+        scores: ['score1', 'score2']
+      }
+    }
+    Split::ExperimentCatalog.find_or_create(:basket_text)
   }
 
   let(:goal1) { "purchase" }
   let(:goal2) { "refund" }
+  let(:score1) { 'score1' }
+  let(:score2) { 'score2' }
 
   it "should have goals" do
     expect(alternative.goals).to eq(["purchase", "refund"])
+  end
+
+  describe '#scores' do
+    it 'returns score names' do
+      expect(alternative.scores.count).to eq 2
+      expect(alternative.scores).to include score1, score2
+    end
+  end
+
+  describe '#increment_score' do
+    context 'with existent score name' do
+      it 'should increment its score and return the value' do
+        expect(alternative.increment_score(score1, 42)).to eq 42
+      end
+    end
+
+    context 'with non existent score name' do
+      it 'should do nothing and return nil' do
+        expect(alternative.increment_score('score-1', 42)).to be_nil
+      end
+    end
+  end
+
+  describe '#score' do
+    before(:each) do
+      alternative.increment_score(score1, 1)
+    end
+    context 'with existent score name' do
+      it 'should return current score value' do
+        expect(alternative.score(score1)).to eq 1
+        expect(alternative.score(score2)).to eq 0
+      end
+    end
+    context 'with non existent score name' do
+      it 'should return nil' do
+        expect(alternative.score('score-1')).to be_nil
+      end
+    end
   end
 
   it "should have and only return the name" do
@@ -154,11 +201,15 @@ describe Split::Alternative do
     alternative.set_completed_count(4, goal1)
     alternative.set_completed_count(5, goal2)
     alternative.set_completed_count(6)
+    alternative.increment_score(score1, 1)
+    alternative.increment_score(score2, 2)
     alternative.reset
     expect(alternative.participant_count).to eq(0)
     expect(alternative.completed_count(goal1)).to eq(0)
     expect(alternative.completed_count(goal2)).to eq(0)
     expect(alternative.completed_count).to eq(0)
+    expect(alternative.score(score1)).to eq 0
+    expect(alternative.score(score2)).to eq 0
   end
 
   it "should know if it is the control of an experiment" do

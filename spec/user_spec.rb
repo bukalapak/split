@@ -23,7 +23,7 @@ describe Split::User do
       @subject.cleanup_old_versions!(experiment)
       expect(@subject.keys).to be_empty
     end
-  end 
+  end
 
   context '#cleanup_old_experiments!' do
     it 'removes key if experiment is not found' do
@@ -57,6 +57,20 @@ describe Split::User do
         @subject.cleanup_old_experiments!
         expect(@subject.keys).to include("link_color")
         expect(@subject.keys).to include("link_color:finished")
+      end
+    end
+
+    context 'with scored key' do
+      let(:user_keys) { { 'link_color' => 'blue', 'link_color:scored' => { 'score1' => true } } }
+
+      it 'does not remove scored key for experiment without a winner' do
+        allow(Split::ExperimentCatalog).to receive(:find).with('link_color').and_return(experiment)
+        allow(Split::ExperimentCatalog).to receive(:find).with('link_color:scored').and_return(nil)
+        allow(experiment).to receive(:start_time).and_return(Date.today)
+        allow(experiment).to receive(:has_winner?).and_return(false)
+        @subject.cleanup_old_experiments!
+        expect(@subject.keys).to include("link_color")
+        expect(@subject.keys).to include("link_color:scored")
       end
     end
   end

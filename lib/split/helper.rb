@@ -80,8 +80,8 @@ module Split
 
     def score_experiment(experiment, score_name, score_value)
       already_scored = ab_user[experiment.scored_key] && ab_user[experiment.scored_key][score_name.to_s]
-      return true if experiment.has_winner? || already_scored
       alternative_name = ab_user[experiment.key]
+      return if experiment.has_winner? || already_scored || alternative_name.nil?
       trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
       ab_user[experiment.scored_key] ||= {}
@@ -99,10 +99,10 @@ module Split
       Split.configuration.db_failover_on_db_error.call(e)
     end
 
-    def ab_score_experiment(experiment_name, alternative_name, score_name, score_value = 1)
-      return if exclude_visitor? || Split.configuration.disabled?
+    def ab_score_alternative(experiment_name, alternative_name, score_name, score_value = 1)
+      return if Split.configuration.disabled?
       experiment = ExperimentCatalog.find(experiment_name)
-      return unless experiment.scores.include?(score_name.to_s)
+      return unless experiment && experiment.scores.include?(score_name.to_s)
       trial = Trial.new(experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
     rescue => e

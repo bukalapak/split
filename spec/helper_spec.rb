@@ -381,6 +381,252 @@ describe Split::Helper do
     end
   end
 
+  # TODO: dry
+  describe '.ab_score' do
+    before(:each) do
+      Split.configuration.experiments = {
+        experiment1: {
+          alternatives: ['alt1', 'alt2'],
+          scores: ['score1', 'score2']
+        },
+        experiment2: {
+          alternatives: ['alt1', 'alt2'],
+          scores: ['score1', 'score3']
+        }
+      }
+      Split.configuration.allow_multiple_experiments = true
+      Split::ExperimentCatalog.find_or_create(:experiment1)
+      Split::ExperimentCatalog.find_or_create(:experiment2)
+    end
+
+    def exp_alt(exp_name, alt_name)
+      Split::Alternative.new(alt_name, exp_name)
+    end
+
+    context 'when in a web session' do
+      context 'with ongoing experiments' do
+        before(:each) do
+          @alt_exp1 = ab_test(:experiment1)
+          @alt_exp2 = ab_test(:experiment2)
+        end
+        context 'with experiments having given score name' do
+          before(:each) do
+            ab_score('score1', 100)
+            ab_score('score2', 200)
+          end
+          it 'should increment score on the experiments\' chosen alternative by given value' do
+            alt_other_exp1 = @alt_exp1 == 'alt1' ? 'alt2' : 'alt1'
+            alt_other_exp2 = @alt_exp2 == 'alt1' ? 'alt2' : 'alt1'
+
+            expect(exp_alt(:experiment1, @alt_exp1).score('score1')).to eq 100
+            expect(exp_alt(:experiment1, @alt_exp1).score('score2')).to eq 200
+            expect(exp_alt(:experiment1, alt_other_exp1).score('score1')).to eq 0
+            expect(exp_alt(:experiment1, alt_other_exp1).score('score2')).to eq 0
+            expect(exp_alt(:experiment2, @alt_exp2).score('score1')).to eq 100
+            expect(exp_alt(:experiment2, @alt_exp2).score('score3')).to eq 0
+            expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
+            expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
+          end
+        end
+
+        context 'without any experiments having given score name' do
+          before(:each) do
+            ab_score('score-1', 300)
+          end
+          it 'should do nothing' do
+            expect(exp_alt(:experiment1, 'alt1').score('score1')).to eq 0
+            expect(exp_alt(:experiment1, 'alt1').score('score2')).to eq 0
+            expect(exp_alt(:experiment1, 'alt2').score('score1')).to eq 0
+            expect(exp_alt(:experiment1, 'alt2').score('score2')).to eq 0
+            expect(exp_alt(:experiment2, 'alt1').score('score1')).to eq 0
+            expect(exp_alt(:experiment2, 'alt1').score('score3')).to eq 0
+            expect(exp_alt(:experiment2, 'alt2').score('score1')).to eq 0
+            expect(exp_alt(:experiment2, 'alt2').score('score3')).to eq 0
+          end
+        end
+      end
+
+      context 'with finished experiments having given score name' do
+        before(:each) do
+          @alt_exp1 = ab_test(:experiment1)
+          @alt_exp2 = ab_test(:experiment2)
+        end
+        context 'finished with reset' do
+          before(:each) do
+            ab_finished(:experiment1)
+            ab_finished(:experiment2)
+            ab_score('score1', 100)
+            ab_score('score2', 200)
+            ab_score('score3', 300)
+          end
+          it 'should do nothing' do
+            expect(exp_alt(:experiment1, 'alt1').score('score1')).to eq 0
+            expect(exp_alt(:experiment1, 'alt1').score('score2')).to eq 0
+            expect(exp_alt(:experiment1, 'alt2').score('score1')).to eq 0
+            expect(exp_alt(:experiment1, 'alt2').score('score2')).to eq 0
+            expect(exp_alt(:experiment2, 'alt1').score('score1')).to eq 0
+            expect(exp_alt(:experiment2, 'alt1').score('score3')).to eq 0
+            expect(exp_alt(:experiment2, 'alt2').score('score1')).to eq 0
+            expect(exp_alt(:experiment2, 'alt2').score('score3')).to eq 0
+          end
+          context 'on next experiment scoring' do
+            before(:each) do
+              @alt_exp1 = ab_test(:experiment1)
+              @alt_exp2 = ab_test(:experiment2)
+              ab_score('score1', 42)
+              ab_score('score3', 77)
+            end
+            it 'should increment score on the experiments\' chosen alternative by given value' do
+              alt_other_exp1 = @alt_exp1 == 'alt1' ? 'alt2' : 'alt1'
+              alt_other_exp2 = @alt_exp2 == 'alt1' ? 'alt2' : 'alt1'
+              expect(exp_alt(:experiment1, @alt_exp1).score('score1')).to eq 42
+              expect(exp_alt(:experiment1, @alt_exp1).score('score2')).to eq 0
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score1')).to eq 0
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score2')).to eq 0
+              expect(exp_alt(:experiment2, @alt_exp2).score('score1')).to eq 42
+              expect(exp_alt(:experiment2, @alt_exp2).score('score3')).to eq 77
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
+            end
+          end
+        end
+        context 'finished without reset' do
+          before(:each) do
+            ab_finished(:experiment1, reset: false)
+            ab_finished(:experiment2, reset: false)
+            ab_score('score1', 100)
+            ab_score('score2', 200)
+            ab_score('score3', 300)
+          end
+          it 'should increment score on the experiments\' chosen alternative by given value' do
+            alt_other_exp1 = @alt_exp1 == 'alt1' ? 'alt2' : 'alt1'
+            alt_other_exp2 = @alt_exp2 == 'alt1' ? 'alt2' : 'alt1'
+
+            expect(exp_alt(:experiment1, @alt_exp1).score('score1')).to eq 100
+            expect(exp_alt(:experiment1, @alt_exp1).score('score2')).to eq 200
+            expect(exp_alt(:experiment1, alt_other_exp1).score('score1')).to eq 0
+            expect(exp_alt(:experiment1, alt_other_exp1).score('score2')).to eq 0
+            expect(exp_alt(:experiment2, @alt_exp2).score('score1')).to eq 100
+            expect(exp_alt(:experiment2, @alt_exp2).score('score3')).to eq 300
+            expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
+            expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
+          end
+          context 'on next experiment' do
+            before(:each) do
+              @alt_exp1 = ab_test(:experiment1)
+              @alt_exp2 = ab_test(:experiment2)
+              ab_score('score1', 42)
+              ab_score('score3', 77)
+            end
+            it 'should do nothing' do
+              alt_other_exp1 = @alt_exp1 == 'alt1' ? 'alt2' : 'alt1'
+              alt_other_exp2 = @alt_exp2 == 'alt1' ? 'alt2' : 'alt1'
+
+              expect(exp_alt(:experiment1, @alt_exp1).score('score1')).to eq 100
+              expect(exp_alt(:experiment1, @alt_exp1).score('score2')).to eq 200
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score1')).to eq 0
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score2')).to eq 0
+              expect(exp_alt(:experiment2, @alt_exp2).score('score1')).to eq 100
+              expect(exp_alt(:experiment2, @alt_exp2).score('score3')).to eq 300
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
+            end
+          end
+        end
+      end
+
+      context 'with no experiments' do
+        it 'should do nothing' do
+          expect(exp_alt(:experiment1, 'alt1').score('score1')).to eq 0
+          expect(exp_alt(:experiment1, 'alt1').score('score2')).to eq 0
+          expect(exp_alt(:experiment1, 'alt2').score('score1')).to eq 0
+          expect(exp_alt(:experiment1, 'alt2').score('score2')).to eq 0
+          expect(exp_alt(:experiment2, 'alt1').score('score1')).to eq 0
+          expect(exp_alt(:experiment2, 'alt1').score('score3')).to eq 0
+          expect(exp_alt(:experiment2, 'alt2').score('score1')).to eq 0
+          expect(exp_alt(:experiment2, 'alt2').score('score3')).to eq 0
+        end
+      end
+    end
+
+    context 'when not in a web session' do
+      before(:each) do
+        ab_user = nil
+        ab_score('score1', 1)
+        ab_score('score2', 1)
+        ab_score('score3', 1)
+        ab_score('score4', 1)
+      end
+      it 'should do nothing' do
+        expect(exp_alt(:experiment1, 'alt1').score('score1')).to eq 0
+        expect(exp_alt(:experiment1, 'alt1').score('score2')).to eq 0
+        expect(exp_alt(:experiment1, 'alt2').score('score1')).to eq 0
+        expect(exp_alt(:experiment1, 'alt2').score('score2')).to eq 0
+        expect(exp_alt(:experiment2, 'alt1').score('score1')).to eq 0
+        expect(exp_alt(:experiment2, 'alt1').score('score3')).to eq 0
+        expect(exp_alt(:experiment2, 'alt2').score('score1')).to eq 0
+        expect(exp_alt(:experiment2, 'alt2').score('score3')).to eq 0
+      end
+    end
+  end
+
+  describe '.ab_score_alternative' do
+    before(:each) do
+      Split.configuration.experiments = {
+        experiment1: {
+          alternatives: ['alt1', 'alt2'],
+          scores: ['score1', 'score2']
+        }
+      }
+      Split::ExperimentCatalog.find_or_create(:experiment1)
+      @alt1 = Split::Alternative.new('alt1', :experiment1)
+      @alt2 = Split::Alternative.new('alt2', :experiment1)
+    end
+
+    context 'with valid input (i.e. everything is exist)' do
+      it 'should increment the score of given alternative' do
+        ab_score_alternative(:experiment1, 'alt1', 'score1', 42)
+
+        expect(@alt1.score('score1')).to eq 42
+        expect(@alt1.score('score2')).to eq 0
+        expect(@alt2.score('score1')).to eq 0
+        expect(@alt2.score('score2')).to eq 0
+      end
+    end
+
+    context 'with invalid input' do
+      context 'non existent experiment name' do
+        it 'should do nothing' do
+          ab_score_alternative(:experiment2, 'alt1', 'score1', 42)
+          expect(@alt1.score('score1')).to eq 0
+          expect(@alt1.score('score2')).to eq 0
+          expect(@alt2.score('score1')).to eq 0
+          expect(@alt2.score('score2')).to eq 0
+        end
+      end
+
+      context 'non existent alternative name' do
+        it 'should do nothing' do
+          ab_score_alternative(:experiment1, 'alt3', 'score1', 42)
+          expect(@alt1.score('score1')).to eq 0
+          expect(@alt1.score('score2')).to eq 0
+          expect(@alt2.score('score1')).to eq 0
+          expect(@alt2.score('score2')).to eq 0
+        end
+      end
+
+      context 'non existent score name' do
+        it 'should do nothing' do
+          ab_score_alternative(:experiment1, 'alt1', 'score3', 42)
+          expect(@alt1.score('score1')).to eq 0
+          expect(@alt1.score('score2')).to eq 0
+          expect(@alt2.score('score1')).to eq 0
+          expect(@alt2.score('score2')).to eq 0
+        end
+      end
+    end
+  end
+
   context "finished with config" do
     it "passes reset option" do
       Split.configuration.experiments = {

@@ -73,8 +73,10 @@ describe Split::Configuration do
       }
     }
 
+    experiment = Split::ExperimentCatalog.find(:my_experiment)
     expect(@config.scores).not_to be_nil
-    expect(@config.scores.keys).to eq(['score1'])
+    expect(@config.scores.keys).to include 'score1'
+    expect(@config.scores['score1']).to include experiment
   end
 
   it "should allow loading of experiment using experment_for" do
@@ -189,8 +191,16 @@ describe Split::Configuration do
         end
 
         it 'should recognize scores' do
+          exp1 = Split::ExperimentCatalog.find(:my_experiment)
+          exp2 = Split::ExperimentCatalog.find(:another_experiment)
           expect(@config.scores).not_to be_nil
           expect(@config.scores.keys).to eq(['score1', 'score2', 'score3'])
+          expect(@config.scores['score1'].count).to eq 2
+          expect(@config.scores['score1']).to include(exp1, exp2)
+          expect(@config.scores['score2'].count).to eq 1
+          expect(@config.scores['score2']).to include(exp1)
+          expect(@config.scores['score3'].count).to eq 1
+          expect(@config.scores['score3']).to include(exp2)
         end
 
       end

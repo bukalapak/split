@@ -69,7 +69,8 @@ module Split
     end
 
     def score(score_name)
-      Split.redis.hget(key, "score:#{score_name}")
+      return nil unless scores.include?(score_name)
+      Split.redis.hget(key, "score:#{score_name}").to_i
     end
 
     def unfinished_count
@@ -103,6 +104,7 @@ module Split
     end
 
     def increment_score(score_name, value = 1)
+      return nil unless scores.include?(score_name)
       Split.redis.hincrby key, "score:#{score_name}", value
     end
 
