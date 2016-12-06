@@ -105,6 +105,18 @@
       <% end %>
       <td>N/A</td>
     </tr>
+    <% scores.each do |score| %>
+      <tr>
+        <% total_score = 0 %>
+        <td><%= score.name %></td>
+        <% alternatives.each do |alternative| %>
+          <% score_value = alternative.score(score.name) %>
+          <td><%= score_value %></td>
+          <% total_score += score_value %>
+        <% end %>
+        <td><%= total_score %></td>
+      </tr>
+    <% end %>
     <tr>
       <td>Finish</td>
       <% alternatives.each do |alternative| %>
@@ -125,17 +137,5 @@
       <% end %>
       <td>N/A</td>
     </tr>
-    <% scores.each do |score| %>
-      <tr>
-        <% total_score = 0 %>
-        <td><%= score.name %></td>
-        <% alternatives.each do |alternative| %>
-          <% score_value = alternative.score(score.name) %>
-          <td><%= score_value %></td>
-          <% total_score += score_value %>
-        <% end %>
-        <td><%= total_score %></td>
-      </tr>
-    <% end %>
   </table>
 </div>
