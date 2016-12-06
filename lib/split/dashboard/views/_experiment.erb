@@ -33,34 +33,24 @@
       <% alternatives.each do |alternative| %>
         <th><%= alternative.name %></th>
       <% end %>
-      <th>Totals</th>
     </tr>
     <tr>
       <td>Participants</td>
-      <% total_participants = 0 %>
       <% alternatives.each do |alternative| %>
         <td><%= alternative.participant_count %></td>
-        <% total_participants += alternative.participant_count %>
       <% end %>
-      <td><%= total_participants %></td>
     </tr>
     <tr>
       <td>Non-finished</td>
-      <% total_unfinished = 0 %>
       <% alternatives.each do |alternative| %>
         <td><%= alternative.unfinished_count %></td>
-        <% total_unfinished += alternative.unfinished_count %>
       <% end %>
-      <td><%= total_unfinished %></td>
     </tr>
     <tr>
       <td>Completed</td>
-      <% total_completed = 0 %>
       <% alternatives.each do |alternative| %>
         <td><%= alternative.completed_count(goal) %></td>
-        <% total_completed += alternative.completed_count(goal) %>
       <% end %>
-      <td><%= total_completed %></td>
     </tr>
     <tr>
       <td>Conversion Rate</td>
@@ -80,7 +70,6 @@
           <% end %>
         </td>
       <% end %>
-      <td>N/A</td>
     </tr>
     <tr>
       <td>Confidence</td>
@@ -92,7 +81,6 @@
           </div>
         </td>
       <% end %>
-      <td>N/A</td>
     </tr>
     <tr>
       <td>Probability of being Winner</td>
@@ -103,21 +91,18 @@
           </div>
         </td>
       <% end %>
-      <td>N/A</td>
     </tr>
     <% scores.each do |score| %>
       <tr>
-        <% total_score = 0 %>
         <td><%= score.name %></td>
         <% alternatives.each do |alternative| %>
           <% score_value = alternative.score(score.name) %>
           <td><%= score_value %></td>
           <% total_score += score_value %>
         <% end %>
-        <td><%= total_score %></td>
       </tr>
     <% end %>
-    <tr>
+    <tr class="totals">
       <td>Finish</td>
       <% alternatives.each do |alternative| %>
         <td>
@@ -135,7 +120,6 @@
           <% end %>
         </td>
       <% end %>
-      <td>N/A</td>
     </tr>
   </table>
 </div>
