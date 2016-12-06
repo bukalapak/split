@@ -90,6 +90,7 @@ module Split
 
     def ab_score(score_name, score_value = 1)
       return if exclude_visitor? || Split.configuration.disabled?
+      score_name = score_name.to_s
       experiments = Score.possible_experiments(score_name)
       experiments.each do |experiment|
         score_experiment(experiment, score_name, score_value)
@@ -101,8 +102,10 @@ module Split
 
     def ab_score_alternative(experiment_name, alternative_name, score_name, score_value = 1)
       return if Split.configuration.disabled?
+      score_name = score_name.to_s
+      alternative_name = alternative_name.to_s
       experiment = ExperimentCatalog.find(experiment_name)
-      return unless experiment && experiment.scores.include?(score_name.to_s)
+      return unless experiment && experiment.scores.include?(score_name)
       trial = Trial.new(experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
     rescue => e
