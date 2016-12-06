@@ -26,43 +26,45 @@
     <% end %>
   </div>
   <table>
+    <% alternatives = experiment.alternatives %>
     <% scores = @scores.select {|score| score.experiments.include? experiment} %>
     <tr>
-      <th>Alternative Name</th>
-      <th>Participants</th>
-      <th>Non-finished</th>
-      <th>Completed</th>
-      <th>Conversion Rate</th>
-      <% scores.each do |score| %>
-        <th><%= score.name %></th>
+      <th/>
+      <% alternatives.each do |alternative| %>
+        <th><%= alternative.name %></th>
       <% end %>
-      <th>
-        <form>
-          <select id="dropdown-<%=experiment.jstring(goal)%>" name="dropdown-<%=experiment.jstring(goal)%>">
-            <option value="confidence-<%=experiment.jstring(goal)%>">Confidence</option>
-            <option value="probability-<%=experiment.jstring(goal)%>">Probability of being Winner</option>
-          </select>
-        </form>
-      </th>
-      <th>Finish</th>
+      <th>Totals</th>
     </tr>
-
-    <% total_participants = total_completed = total_unfinished = 0 %>
-    <% experiment.alternatives.each do |alternative| %>
-      <tr>
-        <td>
-          <%= alternative.name %>
-          <% if alternative.control? %>
-            <em>control</em>
-          <% end %>
-          <form action="<%= url('force_alternative') + '?experiment=' + experiment.name %>" method='post'>
-            <input type='hidden' name='alternative' value='<%= h alternative.name %>'>
-            <input type="submit" value="Force for current user" class="green">
-          </form>
-        </td>
+    <tr>
+      <td>Participants</td>
+      <% total_participants = 0 %>
+      <% alternatives.each do |alternative| %>
         <td><%= alternative.participant_count %></td>
+        <% total_participants += alternative.participant_count %>
+      <% end %>
+      <td><%= total_participants %></td>
+    </tr>
+    <tr>
+      <td>Non-finished</td>
+      <% total_unfinished = 0 %>
+      <% alternatives.each do |alternative| %>
         <td><%= alternative.unfinished_count %></td>
+        <% total_unfinished += alternative.unfinished_count %>
+      <% end %>
+      <td><%= total_unfinished %></td>
+    </tr>
+    <tr>
+      <td>Completed</td>
+      <% total_completed = 0 %>
+      <% alternatives.each do |alternative| %>
         <td><%= alternative.completed_count(goal) %></td>
+        <% total_completed += alternative.completed_count(goal) %>
+      <% end %>
+      <td><%= total_completed %></td>
+    </tr>
+    <tr>
+      <td>Conversion Rate</td>
+      <% alternatives.each do |alternative| %>
         <td>
           <%= number_to_percentage(alternative.conversion_rate(goal)) %>%
           <% if experiment.control.conversion_rate(goal) > 0 && !alternative.control? %>
@@ -77,10 +79,19 @@
             <% end  %>
           <% end %>
         </td>
-        <!-- TODO: too many redis hit? -->
-        <% scores.each do |score| %>
-          <td><%= alternative.score(score.name) %></td>
-        <% end %>
+      <% end %>
+      <td>N/A</td>
+    </tr>
+    <tr>
+      <td>
+        <form>
+          <select id="dropdown-<%=experiment.jstring(goal)%>" name="dropdown-<%=experiment.jstring(goal)%>">
+            <option value="confidence-<%=experiment.jstring(goal)%>">Confidence</option>
+            <option value="probability-<%=experiment.jstring(goal)%>">Probability of being Winner</option>
+          </select>
+        </form>
+      </td>
+      <% alternatives.each do |alternative| %>
         <script type="text/javascript" id="sourcecode">
           $(document).ready(function(){
             $('.probability-<%=experiment.jstring(goal)%>').hide();
@@ -99,6 +110,12 @@
             <span title="p_winner: <%= round(alternative.p_winner(goal), 3) %>"><%= number_to_percentage(round(alternative.p_winner(goal), 3)) %>%</span>
           </div>
         </td>
+      <% end %>
+      <td>N/A</td>
+    </tr>
+    <tr>
+      <td>Finish</td>
+      <% alternatives.each do |alternative| %>
         <td>
           <% if experiment.has_winner? %>
             <% if experiment.winner.name == alternative.name %>
@@ -113,21 +130,20 @@
             </form>
           <% end %>
         </td>
-      </tr>
-
-      <% total_participants += alternative.participant_count %>
-      <% total_unfinished += alternative.unfinished_count %>
-      <% total_completed += alternative.completed_count(goal) %>
-    <% end %>
-
-    <tr class="totals">
-      <td>Totals</td>
-      <td><%= total_participants %></td>
-      <td><%= total_unfinished %></td>
-      <td><%= total_completed %></td>
-      <td>N/A</td>
-      <td>N/A</td>
+      <% end %>
       <td>N/A</td>
     </tr>
+    <% scores.each do |score| %>
+      <tr>
+        <% total_score = 0 %>
+        <td><%= score.name %></td>
+        <% alternatives.each do |alternative| %>
+          <% score_value = alternative.score(score.name) %>
+          <td><%= score_value %></td>
+          <% total_score += score_value %>
+        <% end %>
+        <td><%= total_score %></td>
+      </tr>
+    <% end %>
   </table>
 </div>
