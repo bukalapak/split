@@ -19,53 +19,53 @@ module Split
       # Display experiments without a winner at the top of the dashboard
       @experiments = Split::ExperimentCatalog.all_active_first
 
-      @metrics = Split::Metric.all
+      erb :index
+    end
 
+    get '/experiments/:name' do
+      @experiment = Split::ExperimentCatalog.find(params[:name])
+      redirect url('/') unless @experiment
+
+      @metrics = Split::Metric.all
       @scores = Split::Score.all
 
-      # Display Rails Environment mode (or Rack version if not using Rails)
-      if Object.const_defined?('Rails')
-        @current_env = Rails.env.titlecase
-      else
-        @current_env = "Rack: #{Rack.version}"
-      end
-      erb :index
+      erb :'experiments/show'
     end
 
     post '/force_alternative' do
       Split::User.new(self)[params[:experiment]] = params[:alternative]
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/experiment' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @alternative = Split::Alternative.new(params[:alternative], params[:experiment])
       @experiment.winner = @alternative.name
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/start' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.start
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/reset' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.reset
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/reopen' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.reset_winner
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
 
     delete '/experiment' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.delete
-      redirect url('/')
+      redirect url("/experiments/#{params[:experiment]}")
     end
   end
 end

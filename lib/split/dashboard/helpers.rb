@@ -37,5 +37,14 @@ module Split
       end
 
     end
+
+    # Display Rails Environment mode (or Rack version if not using Rails)
+    def current_env
+      if Object.const_defined?('Rails')
+        Rails.env.titlecase
+      else
+        "Rack: #{Rack.version}"
+      end
+    end
   end
 end

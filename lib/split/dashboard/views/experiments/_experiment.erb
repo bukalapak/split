@@ -6,7 +6,7 @@
 
 <% experiment.calc_winning_alternatives %>
 
-<div class="<%= experiment_class %>" data-name="<%= experiment.name %>" data-complete="<%= experiment.has_winner? %>">
+<div class="<%= experiment_class %>">
   <div class="experiment-header">
     <h2>
       Experiment: <%= experiment.name %>
@@ -21,7 +21,7 @@
     <% if goal.nil? %>
       <div class='inline-controls'>
         <small><%= experiment.start_time ? experiment.start_time.strftime('%Y-%m-%d') : 'Unknown' %></small>
-        <%= erb :_controls, :locals => {:experiment => experiment} %>
+        <%= erb :'experiments/_controls', :locals => {:experiment => experiment} %>
       </div>
     <% end %>
   </div>
@@ -96,9 +96,7 @@
       <tr>
         <td><%= score.name %></td>
         <% alternatives.each do |alternative| %>
-          <% score_value = alternative.score(score.name) %>
-          <td><%= score_value %></td>
-          <% total_score += score_value %>
+          <td><%= alternative.score(score.name) %></td>
         <% end %>
       </tr>
     <% end %>
