@@ -89,8 +89,8 @@ describe Split::Trial do
 
     context "when override is present" do
       let(:override) { 'cart' }
-      let(:trial) do
-        Split::Trial.new(:user => user, :experiment => experiment, :override => override)
+      def trial(alt = override)
+        Split::Trial.new(:user => user, :experiment => experiment, :override => alt)
       end
 
       it_behaves_like 'a trial with callbacks'
@@ -98,6 +98,21 @@ describe Split::Trial do
       it "picks the override" do
         expect(experiment).to_not receive(:next_alternative)
         expect_alternative(trial, override)
+      end
+
+      context 'when user already chose an alternative before' do
+        it 'should not change chosen alternative' do
+          chosen = trial(nil).choose! context
+          unchosen = alternatives.find { |alt| alt != chosen }
+          trial(unchosen).choose! context
+          expect(user[experiment.key]).to eq chosen.name
+        end
+
+        it 'should still return the override' do
+           chosen = trial(nil).choose! context
+           unchosen = alternatives.find { |alt| alt != chosen }
+           expect(trial(unchosen).choose!(context).name).to eq unchosen
+        end
       end
 
       context "when alternative doesn't exist" do
