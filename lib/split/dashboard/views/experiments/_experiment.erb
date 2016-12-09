@@ -31,7 +31,16 @@
     <tr>
       <th/>
       <% alternatives.each do |alternative| %>
-        <th><%= alternative.name %></th>
+        <th>
+          <%= alternative.name %>
+          <% if alternative.control? %>
+            <em>control</em>
+          <% end %>
+          <form action="<%= url('force_alternative') + '?experiment=' + experiment.key %>" method='post'>
+            <input type='hidden' name='alternative' value='<%= h alternative.name %>'>
+            <input type="submit" value="Force for current user" class="green">
+          </form>
+        </th>
       <% end %>
     </tr>
     <tr>
