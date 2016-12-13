@@ -73,6 +73,11 @@ module Split
       Split.redis.hget(key, "score:#{score_name}").to_i
     end
 
+    def score_participant_count(score_name)
+      return nil unless scores.include?(score_name)
+      Split.redis.hget(key, "score_participant_count:#{score_name}").to_i
+    end
+
     def unfinished_count
       participant_count - all_completed_count
     end
@@ -105,6 +110,7 @@ module Split
 
     def increment_score(score_name, value = 1)
       return nil unless scores.include?(score_name)
+      Split.redis.hincrby key, "score_participant_count:#{score_name}", 1
       Split.redis.hincrby key, "score:#{score_name}", value
     end
 
@@ -118,8 +124,10 @@ module Split
     end
 
     def conversion_rate_score(score_name)
-      return 0 if participant_count.zero? || score(score_name)>participant_count
-      (score(score_name).to_f)/participant_count.to_f
+      par = participant_count
+      sco = score_participant_count(score_name)
+      return 0 if par.zero? || sco > par
+      sco.to_f / par.to_f
     end
 
     def experiment
@@ -188,8 +196,8 @@ module Split
       end
       unless scores.empty?
         scores.each do |s|
-          field = "score:#{s}"
-          Split.redis.hset key, field, 0
+          Split.redis.hset key, "score:#{s}", 0
+          Split.redis.hset key, "score_participant_count:#{s}", 0
         end
       end
     end

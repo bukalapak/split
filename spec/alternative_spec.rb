@@ -43,12 +43,19 @@ describe Split::Alternative do
     context 'with existent score name' do
       it 'should increment its score and return the value' do
         expect(alternative.increment_score(score1, 42)).to eq 42
+        expect(alternative.score(score1)).to eq 42
+      end
+
+      it 'should increment is score participant count and' do
+        alternative.increment_score(score1, 53)
+        expect(alternative.score_participant_count(score1)).to eq 1
       end
     end
 
     context 'with non existent score name' do
       it 'should do nothing and return nil' do
         expect(alternative.increment_score('score-1', 42)).to be_nil
+        expect(alternative.score(score1)).to eq 0
       end
     end
   end
@@ -66,6 +73,23 @@ describe Split::Alternative do
     context 'with non existent score name' do
       it 'should return nil' do
         expect(alternative.score('score-1')).to be_nil
+      end
+    end
+  end
+
+  describe '#score_participant_count' do
+    before(:each) do
+      alternative.increment_score(score1, 100)
+    end
+    context 'with existent score name' do
+      it 'should return current score participant count' do
+        expect(alternative.score_participant_count(score1)).to eq 1
+        expect(alternative.score_participant_count(score2)).to eq 0
+      end
+    end
+    context 'with non existent score name' do
+      it 'should return nil' do
+        expect(alternative.score_participant_count('score-1')).to be_nil
       end
     end
   end
@@ -210,6 +234,8 @@ describe Split::Alternative do
     expect(alternative.completed_count).to eq(0)
     expect(alternative.score(score1)).to eq 0
     expect(alternative.score(score2)).to eq 0
+    expect(alternative.score_participant_count(score1)).to eq 0
+    expect(alternative.score_participant_count(score2)).to eq 0
   end
 
   it "should know if it is the control of an experiment" do
@@ -249,6 +275,19 @@ describe Split::Alternative do
 
       expect(alternative).to receive(:completed_count).with(goal2).and_return(6)
       expect(alternative.conversion_rate(goal2)).to eq(0.6)
+    end
+  end
+
+  describe '#conversion_rate_score' do
+    it 'should return 0 if there are no conversions' do
+    end
+
+    it 'calculate conversion rate for scores' do
+      allow(alternative).to receive(:participant_count).and_return(100)
+      allow(alternative).to receive(:score_participant_count).with(score1).and_return(42)
+      allow(alternative).to receive(:score_participant_count).with(score2).and_return(53)
+      expect(alternative.conversion_rate_score(score1)).to eq(0.42)
+      expect(alternative.conversion_rate_score(score2)).to eq(0.53)
     end
   end
 
