@@ -56,13 +56,19 @@
       <% end %>
     </tr>
     <tr>
-      <td>Completed</td>
+      <td rowspan="4">
+        <% unless goal.nil? %>Goal:<%= goal %><% end %>
+        <br />
+        <% metrics = @metrics.select {|metric| metric.experiments.include? experiment} %>
+        <% unless metrics.empty? %>
+          Metrics:<%= metrics.map(&:name).join(', ') %>
+        <% end %>
+      </td>
       <% alternatives.each do |alternative| %>
         <td><%= alternative.completed_count(goal) %></td>
       <% end %>
     </tr>
     <tr>
-      <td>Conversion Rate</td>
       <% alternatives.each do |alternative| %>
         <td>
           <%= number_to_percentage(alternative.conversion_rate(goal)) %>%
@@ -81,7 +87,6 @@
       <% end %>
     </tr>
     <tr>
-      <td>Confidence</td>
       <% alternatives.each do |alternative| %>
         <td>
           <div class="box-<%=experiment.jstring(goal)%> confidence-<%=experiment.jstring(goal)%>">
@@ -92,20 +97,47 @@
       <% end %>
     </tr>
     <tr>
-      <td>Probability of being Winner</td>
       <% alternatives.each do |alternative| %>
         <td>
           <div class="box-<%=experiment.jstring(goal)%> probability-<%=experiment.jstring(goal)%>">
-            <span title="p_winner: <%= round(alternative.p_winner(goal), 3) %>"><%= number_to_percentage(round(alternative.p_winner(goal), 3)) %>%</span>
+            <span title="p_winner: <%= round(alternative.p_winner(goal), 3) %>">Winning Prob: <%= number_to_percentage(round(alternative.p_winner(goal), 3)) %>%</span>
           </div>
         </td>
       <% end %>
     </tr>
     <% scores.each do |score| %>
       <tr>
-        <td><%= score.name %></td>
+        <td rowspan="3"><%= score.name %></td>
         <% alternatives.each do |alternative| %>
           <td><%= alternative.score(score.name) %></td>
+        <% end %>
+      </tr>
+      <tr>
+        <% alternatives.each do |alternative| %>
+          <td>
+            <%= number_to_percentage(alternative.conversion_rate_score(score.name)) %>%
+            <% if experiment.control.conversion_rate_score(score.name) > 0 && !alternative.control? %>
+              <% if alternative.conversion_rate_score(score.name) > experiment.control.conversion_rate_score(score.name) %>
+                <span class='better'>
+                  +<%= number_to_percentage((alternative.conversion_rate_score(score.name)/experiment.control.conversion_rate_score(score.name))-1) %>%
+                </span>
+              <% elsif alternative.conversion_rate_score(score.name) < experiment.control.conversion_rate_score(score.name) %>
+                <span class='worse'>
+                  <%= number_to_percentage((alternative.conversion_rate_score(score.name)/experiment.control.conversion_rate_score(score.name))-1) %>%
+                </span>
+              <% end  %>
+            <% end %>
+          </td>
+        <% end %>
+      </tr>
+      <tr>
+        <% alternatives.each do |alternative| %>
+          <td>
+            <div>
+              <span title='z-score: <%= round(alternative.z_score_score(score.name), 3) %>'><%= confidence_level(alternative.z_score_score(score.name)) %></span>
+              <br>
+            </div>
+          </td>
         <% end %>
       </tr>
     <% end %>

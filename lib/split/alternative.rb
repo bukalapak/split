@@ -117,6 +117,11 @@ module Split
       (completed_count(goal).to_f)/participant_count.to_f
     end
 
+    def conversion_rate_score(score_name)
+      return 0 if participant_count.zero? || score(score_name)>participant_count
+      (score(score_name).to_f)/participant_count.to_f
+    end
+
     def experiment
       Split::ExperimentCatalog.find(experiment_name)
     end
@@ -134,6 +139,26 @@ module Split
 
       p_a = alternative.conversion_rate(goal)
       p_c = control.conversion_rate(goal)
+
+      n_a = alternative.participant_count
+      n_c = control.participant_count
+
+      z_score = Split::Zscore.calculate(p_a, n_a, p_c, n_c)
+    end
+
+    def z_score_score(score_name)
+      # p_a = Pa = proportion of users who converted within the experiment split (conversion rate)
+      # p_c = Pc = proportion of users who converted within the control split (conversion rate)
+      # n_a = Na = the number of impressions within the experiment split
+      # n_c = Nc = the number of impressions within the control split
+
+      control = experiment.control
+      alternative = self
+
+      return 'N/A' if control.name == alternative.name || alternative.conversion_rate_score(score_name)==0
+
+      p_a = alternative.conversion_rate_score(score_name)
+      p_c = control.conversion_rate_score(score_name)
 
       n_a = alternative.participant_count
       n_c = control.participant_count
