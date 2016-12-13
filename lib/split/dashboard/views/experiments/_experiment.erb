@@ -50,20 +50,7 @@
       <% end %>
     </tr>
     <tr>
-      <td>Non-finished</td>
-      <% alternatives.each do |alternative| %>
-        <td><%= alternative.unfinished_count %></td>
-      <% end %>
-    </tr>
-    <tr>
-      <td rowspan="4">
-        <% unless goal.nil? %>Goal:<%= goal %><% end %>
-        <br />
-        <% metrics = @metrics.select {|metric| metric.experiments.include? experiment} %>
-        <% unless metrics.empty? %>
-          Metrics:<%= metrics.map(&:name).join(', ') %>
-        <% end %>
-      </td>
+      <td rowspan="4">Completed</td>
       <% alternatives.each do |alternative| %>
         <td><%= alternative.completed_count(goal) %></td>
       <% end %>
