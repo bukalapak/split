@@ -684,7 +684,7 @@ It is also possible to directly add a score to an alternative without being in a
 web session:
 
 ```ruby
-ab_score_alternative(:my_first_experiment, "alt_one", "score_one", 100)
+Split::Helper.ab_score_alternative(:my_first_experiment, "alt_one", "score_one", 100)
 ```
 
 #### Goals
