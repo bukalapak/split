@@ -427,6 +427,25 @@ describe Split::Helper do
             expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
             expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
           end
+
+          context 'when the experiment already scored before' do
+            before(:each) do
+              ab_score('score1', 300)
+            end
+            it 'should not increment the score' do
+              alt_other_exp1 = @alt_exp1 == 'alt1' ? 'alt2' : 'alt1'
+              alt_other_exp2 = @alt_exp2 == 'alt1' ? 'alt2' : 'alt1'
+
+              expect(exp_alt(:experiment1, @alt_exp1).score('score1')).to eq 100
+              expect(exp_alt(:experiment1, @alt_exp1).score('score2')).to eq 200
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score1')).to eq 0
+              expect(exp_alt(:experiment1, alt_other_exp1).score('score2')).to eq 0
+              expect(exp_alt(:experiment2, @alt_exp2).score('score1')).to eq 100
+              expect(exp_alt(:experiment2, @alt_exp2).score('score3')).to eq 0
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score1')).to eq 0
+              expect(exp_alt(:experiment2, alt_other_exp2).score('score3')).to eq 0
+            end
+          end
         end
 
         context 'without any experiments having given score name' do

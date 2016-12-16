@@ -42,8 +42,8 @@ module Split
       "#{key}:finished"
     end
 
-    def self.scored_key(key)
-      "#{key}:scored"
+    def self.scored_key(key, score_name)
+      "#{key}:scored:#{score_name}"
     end
 
     def set_alternatives_and_options(options)
@@ -202,16 +202,17 @@ module Split
     end
 
     def version
-      @version ||= (redis.get("#{name}:version").to_i || 0)
+      redis.get("#{name}:version").to_i
     end
 
     def increment_version
-      @version = redis.incr("#{name}:version")
+      redis.incr("#{name}:version")
     end
 
     def key
-      if version.to_i > 0
-        "#{name}:#{version}"
+      ver = version
+      if ver > 0
+        "#{name}:#{ver}"
       else
         name
       end
@@ -225,8 +226,8 @@ module Split
       self.class.finished_key(key)
     end
 
-    def scored_key
-      self.class.scored_key(key)
+    def scored_key(score_name)
+      self.class.scored_key(key, score_name)
     end
 
     def metadata_key

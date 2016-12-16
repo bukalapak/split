@@ -46,7 +46,7 @@ describe Split::Alternative do
         expect(alternative.score(score1)).to eq 42
       end
 
-      it 'should increment is score participant count and' do
+      it 'should increment its score participant count' do
         alternative.increment_score(score1, 53)
         expect(alternative.score_participant_count(score1)).to eq 1
       end

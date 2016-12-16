@@ -41,7 +41,9 @@ module Split
 
     def reset!(experiment)
       ab_user.delete(experiment.key)
-      ab_user.delete(experiment.scored_key)
+      experiment.scores.each do |score_name|
+        ab_user.delete(experiment.scored_key(score_name))
+      end
     end
 
     def finish_experiment(experiment, options = {:reset => true})
@@ -78,21 +80,24 @@ module Split
       Split.configuration.db_failover_on_db_error.call(e)
     end
 
+    def unscored_user_experiments(score_name)
+      Score.possible_experiments(score_name).reject do |experiment|
+        already_scored = ab_user[experiment.scored_key(score_name)]
+        alternative_name = ab_user[experiment.key]
+        experiment.has_winner? || already_scored || alternative_name.nil?
+      end
+    end
+
     def score_experiment(experiment, score_name, score_value)
-      already_scored = ab_user[experiment.scored_key] && ab_user[experiment.scored_key][score_name.to_s]
-      alternative_name = ab_user[experiment.key]
-      return if experiment.has_winner? || already_scored || alternative_name.nil?
-      trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative_name)
+      trial = Trial.new(user: ab_user, experiment: experiment, alternative: ab_user[experiment.key])
       trial.score!(score_name, score_value)
-      ab_user[experiment.scored_key] ||= {}
-      ab_user[experiment.scored_key][score_name.to_s] = true
+      ab_user[experiment.scored_key(score_name)] = true
     end
 
     def ab_score(score_name, score_value = 1)
       return if exclude_visitor? || Split.configuration.disabled?
       score_name = score_name.to_s
-      experiments = Score.possible_experiments(score_name)
-      experiments.each do |experiment|
+      unscored_user_experiments(score_name).each do |experiment|
         score_experiment(experiment, score_name, score_value)
       end
     rescue => e
