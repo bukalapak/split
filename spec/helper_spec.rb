@@ -604,7 +604,7 @@ describe Split::Helper do
 
     context 'with valid input (i.e. everything is exist)' do
       it 'should increment the score of given alternative' do
-        ab_score_alternative(:experiment1, 'alt1', 'score1', 42)
+        Split::Helper.ab_score_alternative(:experiment1, 'alt1', 'score1', 42)
 
         expect(@alt1.score('score1')).to eq 42
         expect(@alt1.score('score2')).to eq 0
@@ -616,7 +616,7 @@ describe Split::Helper do
     context 'with invalid input' do
       context 'non existent experiment name' do
         it 'should do nothing' do
-          ab_score_alternative(:experiment2, 'alt1', 'score1', 42)
+          Split::Helper.ab_score_alternative(:experiment2, 'alt1', 'score1', 42)
           expect(@alt1.score('score1')).to eq 0
           expect(@alt1.score('score2')).to eq 0
           expect(@alt2.score('score1')).to eq 0
@@ -626,7 +626,7 @@ describe Split::Helper do
 
       context 'non existent alternative name' do
         it 'should do nothing' do
-          ab_score_alternative(:experiment1, 'alt3', 'score1', 42)
+          Split::Helper.ab_score_alternative(:experiment1, 'alt3', 'score1', 42)
           expect(@alt1.score('score1')).to eq 0
           expect(@alt1.score('score2')).to eq 0
           expect(@alt2.score('score1')).to eq 0
@@ -636,7 +636,7 @@ describe Split::Helper do
 
       context 'non existent score name' do
         it 'should do nothing' do
-          ab_score_alternative(:experiment1, 'alt1', 'score3', 42)
+          Split::Helper.ab_score_alternative(:experiment1, 'alt1', 'score3', 42)
           expect(@alt1.score('score1')).to eq 0
           expect(@alt1.score('score2')).to eq 0
           expect(@alt2.score('score1')).to eq 0
