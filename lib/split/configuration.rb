@@ -130,8 +130,8 @@ module Split
       @metrics
     end
 
-    # TODO: dry (with #metrics)
     def scores
+      return @scores if defined?(@scores)
       @scores = {}
       if self.experiments
         self.experiments.each do |experiment_name, experiment_data|
