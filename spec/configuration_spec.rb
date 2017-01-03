@@ -3,7 +3,7 @@ require 'spec_helper'
 
 describe Split::Configuration do
 
-  before(:each) { @config = Split::Configuration.new }
+  before(:each) { @config = Split.configuration }
 
   it "should provide a default value for ignore_ip_addresses" do
     expect(@config.ignore_ip_addresses).to eq([])
@@ -65,18 +65,36 @@ describe Split::Configuration do
     expect(@config.metrics.keys).to eq([:my_metric])
   end
 
-  it 'should load the scores' do
-    @config.experiments = {
-      my_experiment: {
-        alternatives: ['alt1', 'alt2'],
-        scores: ['score1']
+  describe '#scores' do
+    it 'should load the scores' do
+      @config.experiments = {
+        my_experiment: {
+          alternatives: ['alt1', 'alt2'],
+          scores: ['score1']
+        }
       }
-    }
 
-    experiment = Split::ExperimentCatalog.find(:my_experiment)
-    expect(@config.scores).not_to be_nil
-    expect(@config.scores.keys).to include 'score1'
-    expect(@config.scores['score1']).to include experiment
+      experiment = Split::ExperimentCatalog.find_or_create(:my_experiment)
+      expect(@config.scores).not_to be_nil
+      expect(@config.scores.keys).to include 'score1'
+      expect(@config.scores['score1']).to include experiment
+    end
+
+    context 'when an experiment is reset' do
+      it 'should reflect the changes the experiment mapped by a score' do
+        @config.experiments = {
+          my_experiment: {
+            alternatives: ['alt1', 'alt2'],
+            scores: ['score1']
+          }
+        }
+
+        experiment = Split::ExperimentCatalog.find_or_create(:my_experiment)
+        @config.scores['score1'].first.key # trigger memoization
+        experiment.reset
+        expect(@config.scores['score1'].first.key).to eq(experiment.key)
+      end
+    end
   end
 
   it "should allow loading of experiment using experment_for" do
