@@ -1,7 +1,6 @@
 module Split
   class ScoresCollection
-
-    def initialize(experiment_name, scores=nil)
+    def initialize(experiment_name, scores = nil)
       @experiment_name = experiment_name
       @scores = scores
     end

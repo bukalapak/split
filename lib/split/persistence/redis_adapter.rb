@@ -2,27 +2,32 @@
 module Split
   module Persistence
     class RedisAdapter
-      DEFAULT_CONFIG = {:namespace => 'persistence'}.freeze
+      DEFAULT_CONFIG = { namespace: 'persistence' }.freeze
 
       attr_reader :redis_key
 
       def initialize(context, key = nil)
         if key
           @redis_key = "#{self.class.config[:namespace]}:#{key}"
-        elsif lookup_by = self.class.config[:lookup_by]
-          if lookup_by.respond_to?(:call)
-            key_frag = lookup_by.call(context)
-          else
-            key_frag = context.send(lookup_by)
-          end
+        elsif (lookup_by = self.class.config[:lookup_by])
+          key_frag =
+            if lookup_by.respond_to?(:call)
+              lookup_by.call(context)
+            else
+              context.send(lookup_by)
+            end
           @redis_key = "#{self.class.config[:namespace]}:#{key_frag}"
         else
-          raise "Please configure lookup_by"
+          raise 'Please configure lookup_by'
         end
       end
 
       def [](field)
         Split.redis.hget(redis_key, field)
+      end
+
+      def multi_get(*fields)
+        Split.redis.hmget(redis_key, *fields)
       end
 
       def []=(field, value)
@@ -31,16 +36,20 @@ module Split
         Split.redis.expire(redis_key, expire_seconds) if expire_seconds
       end
 
-      def delete(field)
-        Split.redis.hdel(redis_key, field)
+      def delete(*fields)
+        # multi-field hdel hack
+        key = Split.redis.class.name == 'Redis::Namespace' ? "#{Split.redis.namespace}:#{redis_key}" : redis_key
+        Split.redis.synchronize do |client|
+          client.call([:hdel, key] + fields)
+        end
       end
 
       def keys
         Split.redis.hkeys(redis_key)
       end
 
-      def self.with_config(options={})
-        self.config.merge!(options)
+      def self.with_config(options = {})
+        config.merge!(options)
         self
       end
 
@@ -51,7 +60,6 @@ module Split
       def self.reset_config!
         @config = DEFAULT_CONFIG.dup
       end
-
     end
   end
 end

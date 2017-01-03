@@ -8,7 +8,7 @@ module Split
   class Dashboard < Sinatra::Base
     dir = File.dirname(File.expand_path(__FILE__))
 
-    set :views,  "#{dir}/dashboard/views"
+    set :views, "#{dir}/dashboard/views"
     set :public_folder, "#{dir}/dashboard/public"
     set :static, true
     set :method_override, true

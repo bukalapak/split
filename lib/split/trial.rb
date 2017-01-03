@@ -5,12 +5,12 @@ module Split
     attr_accessor :metadata
 
     def initialize(attrs = {})
-      self.experiment   = attrs.delete(:experiment)
-      self.alternative  = attrs.delete(:alternative)
-      self.metadata  = attrs.delete(:metadata)
+      self.experiment = attrs.delete(:experiment)
+      self.alternative = attrs.delete(:alternative)
+      self.metadata = attrs.delete(:metadata)
 
-      @user             = attrs.delete(:user)
-      @options          = attrs
+      @user = attrs.delete(:user)
+      @options = attrs
 
       @alternative_choosen = false
     end
@@ -20,29 +20,27 @@ module Split
     end
 
     def alternative
-      @alternative ||=  if @experiment.has_winner?
-                          @experiment.winner
-                        end
+      @alternative ||= (@experiment.winner if @experiment.has_winner?)
     end
 
     def alternative=(alternative)
-      @alternative = if alternative.kind_of?(Split::Alternative)
-        alternative
-      else
-        @experiment.alternatives.find{|a| a.name == alternative }
-      end
+      @alternative =
+        if alternative.is_a?(Split::Alternative)
+          alternative
+        else
+          @experiment.alternatives.find { |a| a.name == alternative }
+        end
     end
 
-    def complete!(goals=[], context = nil)
-      if alternative
-        if Array(goals).empty?
-          alternative.increment_completion
-        else
-          Array(goals).each {|g| alternative.increment_completion(g) }
-        end
-
-        run_callback context, Split.configuration.on_trial_complete
+    def complete!(goals = [], context = nil)
+      return unless alternative
+      if Array(goals).empty?
+        alternative.increment_completion
+      else
+        Array(goals).each { |g| alternative.increment_completion(g) }
       end
+
+      run_callback context, Split.configuration.on_trial_complete
     end
 
     def score!(score_name, score_value = 1)
@@ -58,10 +56,11 @@ module Split
       # Only run the process once
       return alternative if @alternative_choosen
 
+      chosen_alternative = @user[@experiment.key]
       if override_is_alternative?
         self.alternative = @options[:override]
-        if should_store_alternative? && !@user[@experiment.key]
-          self.alternative.increment_participation
+        if should_store_alternative? && !chosen_alternative
+          alternative.increment_participation
         end
       elsif @options[:disabled] || Split.configuration.disabled?
         self.alternative = @experiment.control
@@ -73,14 +72,14 @@ module Split
         if exclude_user?
           self.alternative = @experiment.control
         else
-          value = @user[@experiment.key]
+          value = chosen_alternative
           if value
             self.alternative = value
           else
             self.alternative = @experiment.next_alternative
 
             # Increment the number of participants since we are actually choosing a new alternative
-            self.alternative.increment_participation
+            alternative.increment_participation
 
             run_callback context, Split.configuration.on_trial_choose
           end
@@ -88,7 +87,7 @@ module Split
       end
 
       if override_is_alternative?
-        if should_store_alternative? && !@user[@experiment.key]
+        if should_store_alternative? && !chosen_alternative
           @user[@experiment.key] = alternative.name
         end
       elsif should_store_alternative?
@@ -118,9 +117,7 @@ module Split
     end
 
     def cleanup_old_versions
-      if @experiment.version > 0
-        @user.cleanup_old_versions!(@experiment)
-      end
+      @user.cleanup_old_versions!(@experiment) if @experiment.version > 0
     end
 
     def exclude_user?

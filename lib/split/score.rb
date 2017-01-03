@@ -5,7 +5,7 @@ module Split
     attr_accessor :experiments
 
     def initialize(name, experiments)
-      @name  = name
+      @name = name
       @experiments = experiments
     end
 

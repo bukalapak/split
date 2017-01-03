@@ -1,23 +1,26 @@
 # frozen_string_literal: true
 module Split
   module Helper
-    OVERRIDE_PARAM_NAME = "ab_test"
+    OVERRIDE_PARAM_NAME = 'ab_test'.freeze
 
     module_function
 
     def ab_test(metric_descriptor, control = nil, *alternatives)
       begin
         experiment = ExperimentCatalog.find_or_initialize(metric_descriptor, control, *alternatives)
-        alternative = if Split.configuration.enabled
-          experiment.save
-          trial = Trial.new(:user => ab_user, :experiment => experiment,
-              :override => override_alternative(experiment.name), :exclude => exclude_visitor?,
-              :disabled => split_generically_disabled?)
-          alt = trial.choose!(self)
-          alt ? alt.name : nil
-        else
-          control_variable(experiment.control)
-        end
+        alternative =
+          if Split.configuration.enabled
+            experiment.save
+            trial = Trial.new(
+              user: ab_user, experiment: experiment,
+              override: override_alternative(experiment.name), exclude: exclude_visitor?,
+              disabled: split_generically_disabled?
+            )
+            alt = trial.choose!(self)
+            alt ? alt.name : nil
+          else
+            control_variable(experiment.control)
+          end
       rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
         raise(e) unless Split.configuration.db_failover
         Split.configuration.db_failover_on_db_error.call(e)
@@ -30,7 +33,6 @@ module Split
         alternative ||= control_variable(experiment.control)
       end
 
-
       if block_given?
         metadata = trial ? trial.metadata : {}
         yield(alternative, metadata)
@@ -40,56 +42,55 @@ module Split
     end
 
     def reset!(experiment)
-      ab_user.delete(experiment.key)
+      deleted_keys = [experiment.key]
       experiment.scores.each do |score_name|
-        ab_user.delete(experiment.scored_key(score_name))
+        deleted_keys << experiment.scored_key(score_name)
       end
+      ab_user.delete(*deleted_keys)
     end
 
-    def finish_experiment(experiment, options = {:reset => true})
+    def finish_experiment(experiment, options = { reset: true })
       return true if experiment.has_winner?
-      should_reset = experiment.resettable? && options[:reset]
-      if ab_user[experiment.finished_key] && !should_reset
-        return true
-      else
-        alternative_name = ab_user[experiment.key]
-        trial = Trial.new(:user => ab_user, :experiment => experiment,
-              :alternative => alternative_name)
-        trial.complete!(options[:goals], self)
 
-        if should_reset
-          reset!(experiment)
-        else
-          ab_user[experiment.finished_key] = true
-        end
+      is_finished, chosen_alternative = ab_user.multi_get(experiment.finished_key, experiment.key)
+      should_reset = experiment.resettable? && options[:reset]
+      return true if is_finished && !should_reset
+
+      alternative_name = chosen_alternative
+      trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative_name)
+      trial.complete!(options[:goals], self)
+
+      if should_reset
+        reset!(experiment)
+      else
+        ab_user[experiment.finished_key] = true
       end
     end
 
-    def ab_finished(metric_descriptor, options = {:reset => true})
+    def ab_finished(metric_descriptor, options = { reset: true })
       return if exclude_visitor? || Split.configuration.disabled?
       metric_descriptor, goals = normalize_metric(metric_descriptor)
       experiments = Metric.possible_experiments(metric_descriptor)
 
       if experiments.any?
         experiments.each do |experiment|
-          finish_experiment(experiment, options.merge(:goals => goals))
+          finish_experiment(experiment, options.merge(goals: goals))
         end
       end
-    rescue => e
+    rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
       raise unless Split.configuration.db_failover
       Split.configuration.db_failover_on_db_error.call(e)
     end
 
     def unscored_user_experiments(score_name)
       Score.possible_experiments(score_name).reject do |experiment|
-        already_scored = ab_user[experiment.scored_key(score_name)]
-        alternative_name = ab_user[experiment.key]
+        already_scored, alternative_name = ab_user.multi_get(experiment.scored_key(score_name), experiment.key)
         experiment.has_winner? || already_scored || alternative_name.nil?
       end
     end
 
-    def score_experiment(experiment, score_name, score_value)
-      trial = Trial.new(user: ab_user, experiment: experiment, alternative: ab_user[experiment.key])
+    def score_experiment(experiment, score_name, score_value, alternative = nil)
+      trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative || ab_user[experiment.key])
       trial.score!(score_name, score_value)
       ab_user[experiment.scored_key(score_name)] = true
     end
@@ -97,10 +98,12 @@ module Split
     def ab_score(score_name, score_value = 1)
       return if exclude_visitor? || Split.configuration.disabled?
       score_name = score_name.to_s
-      unscored_user_experiments(score_name).each do |experiment|
-        score_experiment(experiment, score_name, score_value)
+      unscored_experiments = unscored_user_experiments(score_name)
+      unscored_alternatives = ab_user.multi_get(*unscored_experiments.map(&:key))
+      unscored_experiments.each_with_index do |experiment, index|
+        score_experiment(experiment, score_name, score_value, unscored_alternatives[index])
       end
-    rescue => e
+    rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
       raise unless Split.configuration.db_failover
       Split.configuration.db_failover_on_db_error.call(e)
     end
@@ -113,7 +116,7 @@ module Split
       return unless experiment && experiment.scores.include?(score_name)
       trial = Trial.new(experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
-    rescue => e
+    rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
       raise unless Split.configuration.db_failover
       Split.configuration.db_failover_on_db_error.call(e)
     end
@@ -156,18 +159,18 @@ module Split
     end
 
     def normalize_metric(metric_descriptor)
-      if Hash === metric_descriptor
+      if metric_descriptor.is_a?(Hash)
         experiment_name = metric_descriptor.keys.first
         goals = Array(metric_descriptor.values.first)
       else
         experiment_name = metric_descriptor
         goals = []
       end
-      return experiment_name, goals
+      [experiment_name, goals]
     end
 
     def control_variable(control)
-      Hash === control ? control.keys.first.to_s : control.to_s
+      control.is_a?(Hash) ? control.keys.first.to_s : control.to_s
     end
   end
 end
