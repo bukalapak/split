@@ -26,12 +26,19 @@ module Split
       name
     end
 
+    def ==(other)
+      name == other&.name && experiment_name == other&.experiment_name
+    end
+
     def goals
       experiment.goals
     end
 
     def scores
-      experiment.scores
+      return @scores if defined?(@scores)
+      experiment_data = Split.configuration.experiments[experiment_name.to_s] || Split.configuration.experiments[experiment_name.to_sym]
+      return (@scores = []) unless experiment_data
+      @scores = experiment_data[:scores] || experiment_data['scores']
     end
 
     def p_winner(goal = nil)
@@ -109,8 +116,11 @@ module Split
 
     def increment_score(score_name, value = 1)
       return nil unless scores.include?(score_name)
-      Split.redis.hincrby key, "score_participant_count:#{score_name}", 1
-      Split.redis.hincrby key, "score:#{score_name}", value
+      _, new_score = Split.redis.multi do
+        Split.redis.hincrby(key, "score_participant_count:#{score_name}", 1)
+        Split.redis.hincrby(key, "score:#{score_name}", value)
+      end
+      new_score
     end
 
     def control?
@@ -130,7 +140,8 @@ module Split
     end
 
     def experiment
-      Split::ExperimentCatalog.find(experiment_name)
+      return @experiment if defined?(@experiment)
+      @experiment = Split::ExperimentCatalog.find(experiment_name)
     end
 
     def z_score(goal = nil)

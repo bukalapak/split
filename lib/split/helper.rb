@@ -83,10 +83,20 @@ module Split
     end
 
     def unscored_user_experiments(score_name)
-      Score.possible_experiments(score_name).reject do |experiment|
-        already_scored, alternative_name = ab_user.multi_get(experiment.scored_key(score_name), experiment.key)
-        experiment.has_winner? || already_scored || alternative_name.nil?
+      retval = []
+      experiments_by_score = Score.possible_experiments(score_name)
+      mget_args = []
+      experiments_by_score.each do |experiment|
+        mget_args << experiment.scored_key(score_name)
+        mget_args << experiment.key
       end
+      ab_user_data = ab_user.multi_get(*mget_args)
+      experiments_by_score.each_with_index do |experiment, index|
+        already_scored = ab_user_data[index * 2]
+        alternative_name = ab_user_data[index * 2 + 1]
+        retval << { experiment: experiment, alternative_name: alternative_name } unless experiment.has_winner? || already_scored || alternative_name.nil?
+      end
+      retval
     end
 
     def score_experiment(experiment, score_name, score_value, alternative = nil)
@@ -98,11 +108,35 @@ module Split
     def ab_score(score_name, score_value = 1)
       return if exclude_visitor? || Split.configuration.disabled?
       score_name = score_name.to_s
-      unscored_experiments = unscored_user_experiments(score_name)
-      unscored_alternatives = ab_user.multi_get(*unscored_experiments.map(&:key))
-      unscored_experiments.each_with_index do |experiment, index|
-        score_experiment(experiment, score_name, score_value, unscored_alternatives[index])
+      unscored_user_experiments(score_name).each do |ue|
+        score_experiment(ue[:experiment], score_name, score_value, ue[:alternative_name])
       end
+    rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
+      raise unless Split.configuration.db_failover
+      Split.configuration.db_failover_on_db_error.call(e)
+    end
+
+    def ab_add_delayed_score(score_name, label, score_value = 1, ttl = 60 * 60 * 24)
+      return if exclude_visitor? || Split.configuration.disabled?
+      score_name = score_name.to_s
+      unscored_experiments = unscored_user_experiments(score_name)
+      alternatives = unscored_experiments.map do |ue|
+        Alternative.new(ue[:alternative_name], ue[:experiment].name)
+      end.select do |alternative|
+        alternative.scores.include?(score_name)
+      end
+      Score.add_delayed(score_name, label, alternatives, score_value, ttl)
+      unscored_experiments.each do |ue|
+        ab_user[ue[:experiment].scored_key(score_name)] = true
+      end
+    rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
+      raise unless Split.configuration.db_failover
+      Split.configuration.db_failover_on_db_error.call(e)
+    end
+
+    def ab_apply_delayed_score(score_name, label)
+      return if Split.configuration.disabled?
+      Score.apply_delayed(score_name.to_s, label)
     rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
       raise unless Split.configuration.db_failover
       Split.configuration.db_failover_on_db_error.call(e)
@@ -110,10 +144,12 @@ module Split
 
     def ab_score_alternative(experiment_name, alternative_name, score_name, score_value = 1)
       return if Split.configuration.disabled?
+
       score_name = score_name.to_s
       alternative_name = alternative_name.to_s
       experiment = ExperimentCatalog.find(experiment_name)
       return unless experiment && experiment.scores.include?(score_name)
+
       trial = Trial.new(experiment: experiment, alternative: alternative_name)
       trial.score!(score_name, score_value)
     rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e

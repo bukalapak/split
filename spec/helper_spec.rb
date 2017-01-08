@@ -379,9 +379,8 @@ describe Split::Helper do
     end
   end
 
-  # TODO: dry
-  describe '.ab_score' do
-    before(:each) do
+  describe '.unscored_user_experiments' do
+    before(:example) do
       Split.configuration.experiments = {
         experiment1: {
           alternatives: %w(alt1 alt2),
@@ -393,8 +392,32 @@ describe Split::Helper do
         }
       }
       Split.configuration.allow_multiple_experiments = true
-      Split::ExperimentCatalog.find_or_create(:experiment1)
-      Split::ExperimentCatalog.find_or_create(:experiment2)
+      ab_user['experiment1'] = 'alt1'
+      ab_user['experiment2'] = 'alt2'
+    end
+
+    it 'should return all user experiments with given score unscored' do
+      result = unscored_user_experiments('score2')
+      expect(result.size).to eq(1)
+      expect(result.first[:experiment].name).to eq('experiment1')
+      expect(result.first[:alternative_name]).to eq('alt1')
+    end
+  end
+
+  # TODO: dry
+  describe '.ab_score' do
+    before(:example) do
+      Split.configuration.experiments = {
+        experiment1: {
+          alternatives: %w(alt1 alt2),
+          scores: %w(score1 score2)
+        },
+        experiment2: {
+          alternatives: %w(alt1 alt2),
+          scores: %w(score1 score3)
+        }
+      }
+      Split.configuration.allow_multiple_experiments = true
     end
 
     def exp_alt(exp_name, alt_name)
@@ -584,6 +607,41 @@ describe Split::Helper do
         expect(exp_alt(:experiment2, 'alt2').score('score1')).to eq 0
         expect(exp_alt(:experiment2, 'alt2').score('score3')).to eq 0
       end
+    end
+  end
+
+  describe '.ab_add_delayed_score' do
+    before(:example) do
+      Split.configuration.experiments = {
+        experiment1: {
+          alternatives: %w(alt1 alt2),
+          scores: %w(score1 score2)
+        },
+        experiment2: {
+          alternatives: %w(alt1 alt2),
+          scores: %w(score1 score3)
+        }
+      }
+      Split.configuration.allow_multiple_experiments = true
+      ab_user['experiment1'] = 'alt1'
+      ab_user['experiment2'] = 'alt2'
+    end
+
+    context 'with current experiments having given score name' do
+      it 'should store the delayed score data' do
+        alternatives = [Split::Alternative.new('alt1', 'experiment1')]
+        allow(Split::Score).to receive(:add_delayed).with('score2', 'sample_label', alternatives, 100, 2).and_return(nil)
+        expect(Split::Score).to receive(:add_delayed).with('score2', 'sample_label', alternatives, 100, 2).once
+        ab_add_delayed_score('score2', 'sample_label', 100, 2)
+      end
+    end
+  end
+
+  describe '.ab_apply_delayed_score' do
+    it 'should apply any delayed score' do
+      allow(Split::Score).to receive(:apply_delayed).and_return(nil)
+      expect(Split::Score).to receive(:apply_delayed).once
+      Split::Helper.ab_apply_delayed_score('score1', 'sample_label')
     end
   end
 

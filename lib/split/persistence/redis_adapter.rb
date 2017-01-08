@@ -31,17 +31,15 @@ module Split
       end
 
       def []=(field, value)
-        Split.redis.hset(redis_key, field, value)
-        expire_seconds = self.class.config[:expire_seconds]
-        Split.redis.expire(redis_key, expire_seconds) if expire_seconds
+        Split.redis.multi do
+          Split.redis.hset(redis_key, field, value)
+          expire_seconds = self.class.config[:expire_seconds]
+          Split.redis.expire(redis_key, expire_seconds) if expire_seconds
+        end
       end
 
       def delete(*fields)
-        # multi-field hdel hack
-        key = Split.redis.class.name == 'Redis::Namespace' ? "#{Split.redis.namespace}:#{redis_key}" : redis_key
-        Split.redis.synchronize do |client|
-          client.call([:hdel, key] + fields)
-        end
+        Split.redis.hdel(redis_key, fields)
       end
 
       def keys
