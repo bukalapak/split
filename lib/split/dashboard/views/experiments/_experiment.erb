@@ -92,7 +92,10 @@
       <tr>
         <td rowspan="3"><%= score.name %></td>
         <% alternatives.each do |alternative| %>
-          <td><%= alternative.score(score.name) %> (<%= alternative.score_participant_count(score.name) %> participant)</td>
+          <% total_score = alternative.score(score.name) %>
+          <% score_participant = alternative.score_participant_count(score.name) %>
+          <% average_score = score_participant > 0 ? total_score / score_participant : 0 %>
+          <td><%= total_score %> (<%= score_participant %> participant, <%= average_score %> avg.)</td>
         <% end %>
       </tr>
       <tr>
