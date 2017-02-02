@@ -36,11 +36,13 @@ module Split
           expire_seconds = self.class.config[:expire_seconds]
           Split.redis.expire(redis_key, expire_seconds) if expire_seconds
         end
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'multi')
         redis_data[field.to_s] = value
       end
 
       def delete(*fields)
         Split.redis.hdel(redis_key, fields)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hdel')
         fields.each { |field| redis_data.delete(field.to_s) }
       end
 
@@ -65,6 +67,7 @@ module Split
 
       def redis_data
         return @redis_data if defined?(@redis_data)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hgetall')
         @redis_data = Split.redis.hgetall(redis_key)
       end
     end # RedisPersistence

@@ -35,6 +35,7 @@ module Split
       def add_delayed(score_name, label, alternatives, value = 1, ttl = 60 * 60 * 24)
         val_key = delayed_value_key(score_name, label)
         alt_key = delayed_alternatives_key(score_name, label)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'multi')
         Split.redis.multi do
           Split.redis.set(val_key, value)
           Split.redis.sadd(alt_key, alternatives.map(&:key))
@@ -48,6 +49,7 @@ module Split
         alt_key = delayed_alternatives_key(score_name, label)
         value = delayed_value(score_name, label)
         alternatives = delayed_alternatives(score_name, label)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'multi')
         Split.redis.multi do
           alternatives.each do |alternative|
             alternative.increment_score(score_name, value)
@@ -59,11 +61,13 @@ module Split
 
       def delayed_value(score_name, label)
         key = delayed_value_key(score_name, label)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'get')
         Split.redis.get(key).to_i
       end
 
       def delayed_alternatives(score_name, label)
         key = delayed_alternatives_key(score_name, label)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'smembers')
         Split.redis.smembers(key).map do |alternative_key|
           experiment_name, alternative_name = alternative_key.split(':')
           Alternative.new(alternative_name, experiment_name)

@@ -19,18 +19,22 @@ module Split
     end
 
     def add_to_list(list_name, value)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'rpush')
       redis.rpush(list_name, value)
     end
 
     def set_list_index(list_name, index, value)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'lset')
       redis.lset(list_name, index, value)
     end
 
     def list_length(list_name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'llen')
       redis.llen(list_name)
     end
 
     def remove_last_item_from_list(list_name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'rpop')
       redis.rpop(list_name)
     end
 
@@ -41,7 +45,10 @@ module Split
     end
 
     def add_to_set(set_name, value)
-      redis.sadd(set_name, value) unless redis.sismember(set_name, value)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'sismember')
+      return if redis.sismember(set_name, value)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'sadd')
+      redis.sadd(set_name, value)
     end
 
     private

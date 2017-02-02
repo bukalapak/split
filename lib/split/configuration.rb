@@ -26,6 +26,7 @@ module Split
     attr_accessor :include_rails_helper
     attr_accessor :beta_probability_simulations
     attr_accessor :redis
+    attr_accessor :protor
 
     attr_reader :experiments
 
@@ -248,6 +249,7 @@ module Split
       @include_rails_helper = true
       @beta_probability_simulations = 10_000
       @redis = ENV.fetch(ENV.fetch('REDIS_PROVIDER', 'REDIS_URL'), 'redis://localhost:6379')
+      @protor = nil
     end
 
     def redis_url=(value)

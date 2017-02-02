@@ -11,6 +11,7 @@ module Split
     end
 
     def self.load_from_redis(name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       metric = Split.redis.hget(:metrics, name)
       return unless metric
 
@@ -45,6 +46,7 @@ module Split
     end
 
     def self.all
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hgetall')
       redis_metrics = Split.redis.hgetall(:metrics).collect do |key, _value|
         find(key)
       end
@@ -64,6 +66,7 @@ module Split
     end
 
     def save
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       Split.redis.hset(:metrics, name, experiments.map(&:name).join(','))
     end
 

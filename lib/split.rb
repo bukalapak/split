@@ -14,6 +14,7 @@
    redis_interface
    score
    scores_collection
+   protor
    trial
    user
    version

@@ -6,6 +6,7 @@ module Split
     end
 
     def load_from_redis
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'lrange')
       Split.redis.lrange(goals_key, 0, -1)
     end
 
@@ -30,6 +31,7 @@ module Split
     end
 
     def delete
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'del')
       Split.redis.del(goals_key)
     end
 

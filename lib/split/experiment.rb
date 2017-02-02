@@ -98,6 +98,7 @@ module Split
       persist_experiment_configuration if is_new_record || is_config_changed
 
       redis.hmset(experiment_config_key, :resettable, resettable, :algorithm, algorithm.to_s)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hmset')
       self
     end
 
@@ -111,6 +112,7 @@ module Split
     end
 
     def new_record?
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'exists')
       !redis.exists(name)
     end
 
@@ -146,6 +148,7 @@ module Split
 
     def winner
       experiment_winner = redis.hget(:experiment_winner, name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split::Alternative.new(experiment_winner, name) if experiment_winner
     end
 
@@ -154,6 +157,7 @@ module Split
     end
 
     def winner=(winner_name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       redis.hset(:experiment_winner, name, winner_name.to_s)
     end
 
@@ -166,15 +170,18 @@ module Split
     end
 
     def reset_winner
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hdel')
       redis.hdel(:experiment_winner, name)
     end
 
     def start
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       redis.hset(:experiment_start_times, @name, Time.now.to_i)
     end
 
     def start_time
       t = redis.hget(:experiment_start_times, @name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       return unless t
       # Check if stored time is an integer
       if t =~ /^[-+]?[0-9]+$/
@@ -197,10 +204,12 @@ module Split
     end
 
     def version
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'get')
       redis.get("#{name}:version").to_i
     end
 
     def increment_version
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'incr')
       redis.incr("#{name}:version")
     end
 
@@ -245,15 +254,18 @@ module Split
       Split.configuration.on_before_experiment_delete.call(self)
       if Split.configuration.start_manually
         redis.hdel(:experiment_start_times, @name)
+        ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hdel')
       end
       reset_winner
       redis.srem(:experiments, name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'srem')
       remove_experiment_configuration
       Split.configuration.on_experiment_delete.call(self)
       increment_version
     end
 
     def delete_metadata
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'del')
       redis.del(metadata_key)
     end
 
@@ -265,6 +277,7 @@ module Split
         Split::ScoresCollection.new(@name).load_from_redis
         load_metadata_from_redis
       end
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'pipelined')
 
       options = {
         resettable: exp_config['resettable'],
@@ -391,10 +404,12 @@ module Split
     end
 
     def calc_time=(time)
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       redis.hset(experiment_config_key, :calc_time, time)
     end
 
     def calc_time
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       redis.hget(experiment_config_key, :calc_time).to_i
     end
 
@@ -418,6 +433,7 @@ module Split
     end
 
     def load_metadata_from_redis
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'get')
       redis.get(metadata_key)
     end
 
@@ -432,6 +448,7 @@ module Split
     end
 
     def load_alternatives_from_redis
+    ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'lrange')
       redis.lrange(@name, 0, -1)
     end
 
@@ -450,6 +467,7 @@ module Split
       redis_interface.persist_list(name, @alternatives.map(&:name))
       goals_collection.save
       scores_collection.save
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'set')
       redis.set(metadata_key, @metadata.to_json) unless @metadata.nil?
     end
 
@@ -458,6 +476,7 @@ module Split
       goals_collection.delete
       scores_collection.delete
       delete_metadata
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'del')
       redis.del(@name)
     end
 
@@ -468,6 +487,7 @@ module Split
         Split::ScoresCollection.new(@name).load_from_redis
         load_metadata_from_redis
       end
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'pipelined')
       existing_metadata = temp_meta.nil? ? nil : JSON.parse(temp_meta)
 
       existing_alternatives != @alternatives.map(&:name) ||

@@ -43,24 +43,29 @@ module Split
 
     def p_winner(goal = nil)
       field = set_prob_field(goal)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split.redis.hget(key, field).to_f
     end
 
     def set_p_winner(prob, goal = nil)
       field = set_prob_field(goal)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       Split.redis.hset(key, field, prob.to_f)
     end
 
     def participant_count
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split.redis.hget(key, 'participant_count').to_i
     end
 
     def participant_count=(count)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       Split.redis.hset(key, 'participant_count', count.to_i)
     end
 
     def completed_count(goal = nil)
       field = set_field(goal)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split.redis.hget(key, field).to_i
     end
 
@@ -76,11 +81,13 @@ module Split
 
     def score(score_name)
       return nil unless scores.include?(score_name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split.redis.hget(key, "score:#{score_name}").to_i
     end
 
     def score_participant_count(score_name)
       return nil unless scores.include?(score_name)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hget')
       Split.redis.hget(key, "score_participant_count:#{score_name}").to_i
     end
 
@@ -102,15 +109,18 @@ module Split
 
     def set_completed_count(count, goal = nil)
       field = set_field(goal)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hset')
       Split.redis.hset(key, field, count.to_i)
     end
 
     def increment_participation
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hincrby')
       Split.redis.hincrby key, 'participant_count', 1
     end
 
     def increment_completion(goal = nil)
       field = set_field(goal)
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hincrby')
       Split.redis.hincrby(key, field, 1)
     end
 
@@ -120,6 +130,7 @@ module Split
         Split.redis.hincrby(key, "score_participant_count:#{score_name}", 1)
         Split.redis.hincrby(key, "score:#{score_name}", value)
       end
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'multi')
       new_score
     end
 
@@ -185,6 +196,7 @@ module Split
     end
 
     def save
+      ::Split::Protor.counter(:split_redis_call_total, 3, class: self.class, method: __method__.to_s, redis: 'hsetnx')
       Split.redis.hsetnx key, 'participant_count', 0
       Split.redis.hsetnx key, 'completed_count', 0
       Split.redis.hsetnx key, 'p_winner', p_winner
@@ -197,11 +209,13 @@ module Split
 
     def reset
       Split.redis.hmset key, 'participant_count', 0, 'completed_count', 0
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hmset')
       reset_goals_data
       reset_scores_data
     end
 
     def delete
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'del')
       Split.redis.del(key)
     end
 
@@ -219,6 +233,7 @@ module Split
           redis_args << 0
         end
       end
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hmset')
       Split.redis.hmset key, *redis_args unless redis_args.empty?
     end
 
@@ -232,6 +247,7 @@ module Split
           redis_args << 0
         end
       end
+      ::Split::Protor.counter(:split_redis_call_total, 1, class: self.class, method: __method__.to_s, redis: 'hmset')
       Split.redis.hmset key, *redis_args unless redis_args.empty?
     end
 
