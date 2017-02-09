@@ -35,36 +35,30 @@ module Split
 
     def ab_test(experiment_name, control = nil, *_alternatives, user: nil)
       with_user(user) do
+        experiment_name = experiment_name.keys[0] if experiment_name.is_a? Hash
+        experiment = ExperimentCatalog.find_or_initialize(experiment_name)
+        unless experiment.exist? || control
+          raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not found in the configuration."
+        end
+
+        # at this point, it is either experiment exists in config or caller passes control
         begin
-          experiment_name = experiment_name.keys[0] if experiment_name.is_a? Hash
-          experiment = ExperimentCatalog.find_or_initialize(experiment_name)
-          alternative =
-            if Split.configuration.enabled
-              if Split.configuration.experiment_for(experiment_name) # in config?
-                experiment.save
-                trial = Trial.new(
-                  user: ab_user, experiment: experiment,
-                  override: override_alternative(experiment.name), exclude: exclude_visitor?,
-                  disabled: split_generically_disabled?
-                )
-                alt = trial.choose!(self)
-                alt ? alt.name : nil
-              else # not in config, return winner || control
-                if experiment.has_winner?
-                  experiment.winner.name
-                elsif control
-                  if control.is_a? Hash
-                    control.keys.first.to_s
-                  else
-                    control.to_s
-                  end
-                else
-                  raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not found in the configuration."
-                end
+          if ::Split.configuration.enabled && experiment.exist?
+            experiment.save
+            trial = Trial.new(
+              user: ab_user, experiment: experiment,
+              override: override_alternative(experiment.name), exclude: exclude_visitor?,
+              disabled: split_generically_disabled?
+            )
+            alternative = trial.choose!(self).name
+          else
+            alternative =
+              if ::Split.configuration.enabled && experiment.has_winner? # backward compatibility with inline config
+                experiment.winner.name
+              else
+                control_variable(control || experiment.control)
               end
-            else
-              control_variable(experiment.control)
-            end
+          end
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise(e) unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
@@ -74,7 +68,7 @@ module Split
             alternative = control_variable(experiment.control) if split_generically_disabled?
           end
         ensure
-          alternative ||= control_variable(experiment.control)
+          alternative ||= control_variable(control || experiment.control)
         end
 
         if block_given?

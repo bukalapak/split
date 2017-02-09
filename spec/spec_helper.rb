@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-ENV['RACK_ENV'] = "test"
+ENV['RACK_ENV'] = 'test'
 
 require 'rubygems'
 require 'bundler/setup'
@@ -13,13 +13,13 @@ require 'yaml'
 
 Dir['./spec/support/*.rb'].each { |f| require f }
 
-require "fakeredis"
+require 'fakeredis'
 
 G_fakeredis = Redis.new
 
 module GlobalSharedContext
   extend RSpec::SharedContext
-  let(:mock_user){ Split::User.new(double(session: {})) }
+  let(:mock_user) { Split::User.new(double(session: {})) }
   before(:each) do
     Split.configuration = Split::Configuration.new
     Split.redis = G_fakeredis

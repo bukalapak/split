@@ -1,41 +1,28 @@
 # frozen_string_literal: true
 module Split
   class Experiment
-    attr_accessor :name
-    attr_writer :algorithm
-    attr_accessor :resettable
-    attr_accessor :goals
-    attr_accessor :alternatives
-    attr_accessor :alternative_probabilities
-    attr_accessor :metadata
-    attr_accessor :scores
+    attr_reader :name
+    attr_reader :algorithm
+    attr_reader :resettable
+    attr_reader :goals
+    attr_reader :alternatives
+    attr_reader :alternative_probabilities
+    attr_reader :metadata
+    attr_reader :scores
 
-    DEFAULT_OPTIONS = {
-      resettable: true,
-      scores: []
-    }.freeze
-
-    def initialize(name, options = {})
-      options = DEFAULT_OPTIONS.merge(options)
-
+    def initialize(name, *_deprecated_for_spec_only)
       @name = name.to_s
+      load_from_configuration
+    end
 
-      alternatives = extract_alternatives_from_options(options)
-
-      if alternatives.empty? && (exp_config = Split.configuration.experiment_for(name))
-        options = {
-          alternatives: load_alternatives_from_configuration,
-          goals: Split::GoalsCollection.new(@name).load_from_configuration,
-          metadata: load_metadata_from_configuration,
-          resettable: exp_config[:resettable],
-          algorithm: exp_config[:algorithm],
-          scores: Split::ScoresCollection.new(@name).load_from_configuration
-        }
-      else
-        options[:alternatives] = alternatives
-      end
-
-      set_alternatives_and_options(options)
+    def load_from_configuration
+      return unless (config_hash = ::Split.configuration.experiment_for(@name))
+      load_alternatives(config_hash)
+      load_goals(config_hash)
+      load_resettable(config_hash)
+      load_metadata(config_hash)
+      load_algorithm(config_hash)
+      load_scores(config_hash)
     end
 
     def self.finished_key(key)
@@ -46,60 +33,27 @@ module Split
       "#{key}:scored:#{score_name}"
     end
 
-    def set_alternatives_and_options(options)
-      self.alternatives = options[:alternatives]
-      self.goals = options[:goals]
-      self.resettable = options[:resettable]
-      self.algorithm = options[:algorithm]
-      self.metadata = options[:metadata]
-      self.scores = options[:scores]
-    end
-
-    def extract_alternatives_from_options(options)
-      alts = options[:alternatives] || []
-
-      if alts.length == 1
-        alts = alts[0].map { |k, v| { k => v } } if alts[0].is_a? Hash
-      end
-
-      if alts.empty?
-        exp_config = Split.configuration.experiment_for(name)
-        if exp_config
-          alts = load_alternatives_from_configuration
-          options[:goals] = Split::GoalsCollection.new(@name).load_from_configuration
-          options[:metadata] = load_metadata_from_configuration
-          options[:resettable] = exp_config[:resettable]
-          options[:algorithm] = exp_config[:algorithm]
-          options[:scores] = Split::ScoresCollection.new(@name).load_from_configuration
-        end
-      end
-
-      options[:alternatives] = alts
-
-      set_alternatives_and_options(options)
-
-      # calculate probability that each alternative is the winner
-      @alternative_probabilities = {}
-      alts
-    end
-
     def save
       validate!
       if new_record?
         start unless Split.configuration.start_manually
-        redis.sadd(:experiments, name)
+        persist_configuration
         redis_data[:is_new_record] = false
       end
       self
     end
 
     def validate!
-      if @alternatives.empty? && Split.configuration.experiment_for(@name).nil?
-        raise ExperimentNotFound, "Experiment #{@name} not found"
-      end
-      @alternatives.each(&:validate!)
-      goals_collection.validate!
-      scores_collection.validate!
+      raise ExperimentNotFound, "Experiment #{@name} not found" if @alternatives.nil?
+      validate_alternatives!
+      validate_goals!
+      validate_metadata!
+      validate_algorithm!
+      validate_scores!
+    end
+
+    def exist?
+      @alternatives
     end
 
     def new_record?
@@ -108,32 +62,6 @@ module Split
 
     def ==(other)
       name == other&.name
-    end
-
-    def [](name)
-      alternatives.find { |a| a.name == name }
-    end
-
-    def algorithm
-      @algorithm ||= Split.configuration.algorithm
-    end
-
-    def algorithm=(algorithm)
-      @algorithm = algorithm.is_a?(String) ? algorithm.constantize : algorithm
-    end
-
-    def resettable=(resettable)
-      @resettable = resettable.is_a?(String) ? resettable == 'true' : resettable
-    end
-
-    def alternatives=(alts)
-      @alternatives = alts.map do |alternative|
-        if alternative.is_a?(Split::Alternative)
-          alternative
-        else
-          Split::Alternative.new(alternative, @name)
-        end
-      end
     end
 
     def winner
@@ -159,7 +87,7 @@ module Split
       alternatives.first
     end
 
-    def reset_winner
+    def delete_winner
       redis.hdel(:experiment_winner, name)
       redis_data[:winner_name] = nil
     end
@@ -183,14 +111,6 @@ module Split
 
     def next_alternative
       winner || random_alternative
-    end
-
-    def random_alternative
-      if alternatives.length > 1
-        algorithm.choose_alternative(self)
-      else
-        alternatives.first
-      end
     end
 
     def version
@@ -224,28 +144,31 @@ module Split
     def reset
       Split.configuration.on_before_experiment_reset.call(self)
       alternatives.each(&:reset)
-      reset_winner
+      delete_winner
       Split.configuration.on_experiment_reset.call(self)
       increment_version
     end
 
     def delete
       Split.configuration.on_before_experiment_delete.call(self)
-      if Split.configuration.start_manually
-        redis.hdel(:experiment_start_times, @name)
-        redis_data[:start_time] = nil
-      end
-      reset_winner
-      redis.srem(:experiments, name)
-      redis_data[:is_new_record] = true
+      redis.hdel(:experiment_start_times, @name)
+      redis_data[:start_time] = nil
+      delete_winner
+      delete_configuration
       alternatives.each(&:delete)
       Split.configuration.on_experiment_delete.call(self)
       increment_version
     end
 
     def load_from_redis
-      redis_data
-      self
+      redis_config = redis.pipelined do
+        redis.lrange(@name, 0, -1)
+        redis.lrange("#{@name}:goals", 0, -1)
+        redis.lrange("#{@name}:scores", 0, -1)
+      end
+      @alternatives = redis_config[0].map { |alt_name| ::Split::Alternative.new(alt_name, @name) }
+      @goals = redis_config[1]
+      @scores = redis_config[2]
     end
 
     def calc_winning_alternatives
@@ -257,6 +180,134 @@ module Split
         end
       end
       self
+    end
+
+    def jstring(goal = nil)
+      js_id = if goal.nil?
+                name
+              else
+                name + '-' + goal
+              end
+      js_id.gsub('/', '--')
+    end
+
+    private
+
+    def redis
+      ::Split.redis
+    end
+
+    def redis_data
+      return @redis_data if defined?(@redis_data)
+      @redis_data = {}
+      redis_results = redis.pipelined do
+        redis.get("#{@name}:version")
+        redis.hget(:experiment_winner, @name)
+        redis.hget(:experiment_start_times, @name)
+        redis.sismember(:experiments, @name)
+      end
+      @redis_data[:version] = redis_results[0]
+      @redis_data[:winner_name] = redis_results[1]
+      @redis_data[:start_time] = redis_results[2]
+      @redis_data[:is_new_record] = !redis_results[3]
+      @redis_data
+    end
+
+    def load_alternatives(config_hash)
+      alts_config = config_hash[:alternatives]
+      alt_names =
+        case alts_config
+        when Hash
+          alts_config.keys
+        when Array
+          alts_config.flatten
+        else
+          []
+        end
+      @alternatives = alt_names.map { |alt_name| ::Split::Alternative.new(alt_name, @name) }
+    end
+
+    def load_goals(config_hash)
+      goals_config = config_hash[:goals]
+      @goals = goals_config.is_a?(Array) ? goals_config : []
+    end
+
+    def load_resettable(config_hash)
+      resettable_config = config_hash[:resettable]
+      @resettable = [true, false].include?(resettable_config) ? resettable_config : true
+    end
+
+    def load_algorithm(config_hash)
+      algorithm_config = config_hash[:algorithm]
+      @algorithm = algorithm_config.is_a?(String) ? algorithm_config.constantize : Split.configuration.algorithm
+    end
+
+    def load_metadata(config_hash)
+      metadata_config = config_hash[:metadata]
+      @metadata = metadata_config.is_a?(Hash) ? metadata_config : nil
+    end
+
+    def load_scores(config_hash)
+      scores_config = config_hash[:scores]
+      @scores = scores_config.is_a?(Array) ? scores_config : []
+    end
+
+    def validate_alternatives!
+      raise InvalidExperimentsFormatError, 'Experiment must have one or more alternatives' if @alternatives.empty?
+      @alternatives.each(&:validate!)
+    end
+
+    def validate_goals!
+      return if @goals.all? { |goal| goal.is_a?(String) }
+      raise InvalidExperimentsFormatError, 'Experiment goals must be of type String'
+    end
+
+    def validate_algorithm!
+      raise InvalidExperimentsFormatError, 'Unknown experiment algorithm' unless [
+        Split::Algorithms::WeightedSample,
+        Split::Algorithms::Whiplash
+      ].include?(@algorithm)
+    end
+
+    def validate_metadata!
+      return unless @metadata
+      return if @metadata.keys.sort == @alternatives.map(&:name).sort
+      raise InvalidExperimentsFormatError, 'Experiment metadata keys must match with its alternatives'
+    end
+
+    def validate_scores!
+      return if @scores.all? { |score| score.is_a?(String) }
+      raise InvalidExperimentsFormatError, 'Experiment scores must be of type String'
+    end
+
+    def persist_configuration
+      redis.multi do
+        redis.sadd(:experiments, @name)
+        redis.rpush(@name, @alternatives.map(&:name))
+        redis.rpush("#{@name}:goals", @goals) unless @goals.empty?
+        redis.rpush("#{@name}:goals", @scores) unless @scores.empty?
+      end
+    end
+
+    def delete_configuration
+      redis_data # make sure it's already loaded
+      redis.multi do
+        redis.srem(:experiments, @name)
+        redis.del(@name, "#{@name}:goals", "#{@name}:scores")
+        redis_data[:is_new_record] = true
+      end
+    end
+
+    def delete_alternatives
+      @alternatives.each(&:delete)
+    end
+
+    def random_alternative
+      if alternatives.length > 1
+        algorithm.choose_alternative(self)
+      else
+        alternatives.first
+      end
     end
 
     def estimate_winning_alternative(goal = nil)
@@ -277,7 +328,10 @@ module Split
 
       winning_counts = count_simulated_wins(winning_alternatives)
 
-      @alternative_probabilities = calc_alternative_probabilities(winning_counts, Split.configuration.beta_probability_simulations)
+      @alternative_probabilities = calc_alternative_probabilities(
+        winning_counts,
+        Split.configuration.beta_probability_simulations
+      )
 
       write_to_alternatives(goal)
 
@@ -345,75 +399,10 @@ module Split
         conversions = goal.nil? ? alternative.completed_count : alternative.completed_count(goal)
         alpha = 1 + conversions
         beta = 1 + alternative.participant_count - conversions
-
         params = [alpha, beta]
-
         beta_params[alternative] = params
       end
       beta_params
-    end
-
-    def jstring(goal = nil)
-      js_id = if goal.nil?
-                name
-              else
-                name + '-' + goal
-              end
-      js_id.gsub('/', '--')
-    end
-
-    protected
-
-    def load_metadata_from_configuration
-      Split.configuration.experiment_for(@name)[:metadata]
-    end
-
-    def load_alternatives_from_configuration
-      alts = Split.configuration.experiment_for(@name)[:alternatives]
-      raise ArgumentError, 'Experiment configuration is missing :alternatives array' unless alts
-      if alts.is_a?(Hash)
-        alts.keys
-      else
-        alts.flatten
-      end
-    end
-
-    private
-
-    def redis
-      Split.redis
-    end
-
-    def redis_data
-      return @redis_data if defined?(@redis_data)
-      @redis_data = {}
-      tmp_version, tmp_winner_name, tmp_start_time, tmp_new_record = redis.pipelined do
-        redis.get("#{name}:version")
-        redis.hget(:experiment_winner, name)
-        redis.hget(:experiment_start_times, @name)
-        redis.sismember(:experiments, @name)
-      end
-      @redis_data[:version] = tmp_version
-      @redis_data[:winner_name] = tmp_winner_name
-      @redis_data[:start_time] = tmp_start_time
-      @redis_data[:is_new_record] = !tmp_new_record
-      @redis_data
-    end
-
-    def redis_interface
-      RedisInterface.new
-    end
-
-    def delete_alternatives
-      @alternatives.each(&:delete)
-    end
-
-    def goals_collection
-      Split::GoalsCollection.new(@name, @goals)
-    end
-
-    def scores_collection
-      Split::ScoresCollection.new(@name, @scores)
     end
   end
 end

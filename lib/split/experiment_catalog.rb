@@ -4,7 +4,7 @@ module Split
     # Return all experiments
     def self.all
       # Call compact to prevent nil experiments from being returned -- seems to happen during gem upgrades
-      Split.redis.smembers(:experiments).map { |e| find(e) }.compact
+      ::Split.redis.smembers(:experiments).map { |e| find(e) }.compact
     end
 
     # Return experiments without a winner (considered "active") first
@@ -13,8 +13,8 @@ module Split
     end
 
     def self.find(name)
-      return nil unless Split.redis.sismember(:experiments, name)
-      ::Split::Experiment.new(name).tap(&:load_from_redis)
+      experiment = ::Split::Experiment.new(name)
+      experiment.new_record? ? nil : experiment
     end
 
     def self.find_or_initialize(experiment_name, *_deprecated)

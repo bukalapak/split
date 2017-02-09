@@ -9,6 +9,13 @@ describe Split::User do
   let(:experiment) { Split::Experiment.new('link_color') }
 
   before(:each) do
+    Split.configure do |config|
+      config.experiments = {
+        link_color: {
+          alternatives: %w(blue red)
+        }
+      }
+    end
     @subject = described_class.new(context)
   end
 

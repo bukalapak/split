@@ -5,6 +5,7 @@ require 'split/algorithms'
 require 'time'
 
 describe Split::Experiment do
+  subject { Split::Experiment }
 
   before(:example) do
     Split.configuration.experiments = {
@@ -117,15 +118,37 @@ describe Split::Experiment do
     end
   end
 
-  describe 'initialization' do
-    it 'should set the algorithm when passed as an option to the initializer' do
-      experiment = Split::Experiment.new('basket_text', alternatives: %w(Basket Cart), algorithm: Split::Algorithms::Whiplash)
-      expect(experiment.algorithm).to eq(Split::Algorithms::Whiplash)
+  describe '#initialize' do
+    before do
+      Split.configure do |config|
+        config.experiments = {
+          numbers: {
+            alternatives: %w(one two three),
+            goals: %w(infinite nan),
+            metadata: {
+              one: 'ein',
+              two: 'zwei',
+              three: 'drei'
+            },
+            resettable: false
+          }
+        }
+      end
+    end
+    context 'when the experiment is defined in configuration' do
+      it 'should load the configuration' do
+        experiment = subject.new('numbers')
+        expect(experiment.name).to eq('numbers')
+        expect(experiment.alternatives).not_to be_empty
+      end
     end
 
-    it 'should be possible to make an experiment not resettable' do
-      experiment = Split::Experiment.new('basket_text', alternatives: %w(Basket Cart), resettable: false)
-      expect(experiment.resettable).to be_falsey
+    context 'when the experiment is not defined in configuration' do
+      it 'should only have a name' do
+        experiment = subject.new('letters')
+        expect(experiment.name).to eq('letters')
+        expect(experiment.alternatives).to be_nil
+      end
     end
   end
 
@@ -257,7 +280,9 @@ describe Split::Experiment do
     end
 
     it 'should use the user specified algorithm for this experiment if specified' do
-      experiment.algorithm = Split::Algorithms::Whiplash
+      Split.configure do |config|
+        config.algorithm = Split::Algorithms::Whiplash
+      end
       expect(experiment.algorithm).to eq(Split::Algorithms::Whiplash)
     end
   end
@@ -288,7 +313,9 @@ describe Split::Experiment do
 
       context 'without winner' do
         it 'should use the specified algorithm' do
-          experiment.algorithm = Split::Algorithms::Whiplash
+          Split.configure do |config|
+            config.algorithm = Split::Algorithms::Whiplash
+          end
           expect(experiment.algorithm).to receive(:choose_alternative).and_return(Split::Alternative.new('green', 'link_color'))
           expect(experiment.next_alternative.name).to eq('green')
         end

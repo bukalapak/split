@@ -3,10 +3,21 @@ require 'spec_helper'
 require 'split/trial'
 
 describe Split::Trial do
+  before do
+    Split.configure do |config|
+      config.experiments = {
+        basket_text: {
+          alternatives: %w(basket cart),
+          metadata: Hash[%w(basket cart).map { |k| [k, "Metadata for #{k}"] }]
+        }
+      }
+    end
+  end
+
   let(:user) { mock_user }
   let(:alternatives) { %w(basket cart) }
   let(:experiment) do
-    Split::Experiment.new('basket_text', alternatives: alternatives).save
+    Split::Experiment.new('basket_text').save
   end
 
   it 'should be initializeable' do

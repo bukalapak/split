@@ -1458,12 +1458,12 @@ describe Split::Helper do
     end
 
     it 'fails gracefully if config is missing' do
-      expect(-> { Split.configuration.experiments = nil }).to raise_error(Split::InvalidExperimentsFormatError)
+      expect(-> { Split.configuration.experiments = nil }).to raise_error(::Split::InvalidExperimentsFormatError)
     end
 
     it 'fails gracefully if config is missing alternatives' do
       Split.configuration.experiments[:my_experiment] = { foo: 'Bar' }
-      expect(-> { ab_test :my_experiment }).to raise_error(NoMethodError)
+      expect(-> { ab_test :my_experiment }).to raise_error(::Split::InvalidExperimentsFormatError)
     end
   end
 

@@ -24,6 +24,7 @@ module Split
 
     get '/experiments/:name' do
       @experiment = Split::ExperimentCatalog.find(params[:name])
+      @experiment.load_from_redis
       redirect url('/') unless @experiment
 
       @metrics = Split::Metric.all
@@ -58,7 +59,7 @@ module Split
 
     post '/reopen' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
-      @experiment.reset_winner
+      @experiment.delete_winner
       redirect url("/experiments/#{params[:experiment]}")
     end
 

@@ -244,7 +244,7 @@ module Split
       @persistence_cookie_length = 31_536_000 # One year from now
       @algorithm = Split::Algorithms::WeightedSample
       @include_rails_helper = true
-      @beta_probability_simulations = 1000
+      @beta_probability_simulations = ENV['RACK_ENV'] == 'test' ? 1000 : 10_000 # just to speed up the test
       @redis = ENV.fetch(ENV.fetch('REDIS_PROVIDER', 'REDIS_URL'), 'redis://localhost:6379')
     end
 

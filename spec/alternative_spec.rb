@@ -112,6 +112,16 @@ describe Split::Alternative do
 
   describe 'weights' do
     it 'should set the weights' do
+      Split.configure do |config|
+        config.experiments = {
+          basket_text: {
+            alternatives: [
+              { name: 'Basket', percent: 60 },
+              { name: 'Cart', percent: 40 }
+            ]
+          }
+        }
+      end
       experiment = Split::Experiment.new('basket_text', alternatives: [{ 'Basket' => 0.6 }, { 'Cart' => 0.4 }])
       first = experiment.alternatives[0]
       expect(first.name).to eq('Basket')
