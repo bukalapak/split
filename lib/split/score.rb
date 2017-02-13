@@ -20,12 +20,6 @@ module Split
         score
       end
 
-      def all
-        Split.configuration.scores.map do |name, experiments|
-          new(name, experiments)
-        end
-      end
-
       def possible_experiments(score_name)
         score = find(score_name)
         return [] if score.nil?

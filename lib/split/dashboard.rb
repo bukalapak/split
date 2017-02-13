@@ -28,7 +28,6 @@ module Split
       redirect url('/') unless @experiment
 
       @metrics = Split::Metric.all
-      @scores = Split::Score.all
 
       erb :'experiments/show'
     end

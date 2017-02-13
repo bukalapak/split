@@ -30,7 +30,7 @@
   <% if experiment_defined %>
     <table>
       <% alternatives = experiment.alternatives %>
-      <% scores = @scores.select {|score| score.experiments.include? experiment} %>
+      <% scores = experiment.scores %>
       <tr>
         <th/>
         <% alternatives.each do |alternative| %>
@@ -93,10 +93,10 @@
       </tr>
       <% scores.each do |score| %>
         <tr>
-          <td rowspan="3"><%= score.name %></td>
+          <td rowspan="3"><%= score %></td>
           <% alternatives.each do |alternative| %>
-            <% total_score = alternative.score(score.name) %>
-            <% score_participant = alternative.score_participant_count(score.name) %>
+            <% total_score = alternative.score(score) %>
+            <% score_participant = alternative.score_participant_count(score) %>
             <% average_score = score_participant > 0 ? total_score / score_participant : 0 %>
             <td><%= total_score %> (<%= score_participant %> participant, <%= average_score %> avg.)</td>
           <% end %>
@@ -104,15 +104,15 @@
         <tr>
           <% alternatives.each do |alternative| %>
             <td>
-              <%= number_to_percentage(alternative.conversion_rate_score(score.name)) %>%
-              <% if experiment.control.conversion_rate_score(score.name) > 0 && !alternative.control? %>
-                <% if alternative.conversion_rate_score(score.name) > experiment.control.conversion_rate_score(score.name) %>
+              <%= number_to_percentage(alternative.conversion_rate_score(score)) %>%
+              <% if experiment.control.conversion_rate_score(score) > 0 && !alternative.control? %>
+                <% if alternative.conversion_rate_score(score) > experiment.control.conversion_rate_score(score) %>
                   <span class='better'>
-                    +<%= number_to_percentage((alternative.conversion_rate_score(score.name)/experiment.control.conversion_rate_score(score.name))-1) %>%
+                    +<%= number_to_percentage((alternative.conversion_rate_score(score)/experiment.control.conversion_rate_score(score))-1) %>%
                   </span>
-                <% elsif alternative.conversion_rate_score(score.name) < experiment.control.conversion_rate_score(score.name) %>
+                <% elsif alternative.conversion_rate_score(score) < experiment.control.conversion_rate_score(score) %>
                   <span class='worse'>
-                    <%= number_to_percentage((alternative.conversion_rate_score(score.name)/experiment.control.conversion_rate_score(score.name))-1) %>%
+                    <%= number_to_percentage((alternative.conversion_rate_score(score)/experiment.control.conversion_rate_score(score))-1) %>%
                   </span>
                 <% end  %>
               <% end %>
@@ -123,7 +123,7 @@
           <% alternatives.each do |alternative| %>
             <td>
               <div>
-                <span title='z-score: <%= round(alternative.z_score_score(score.name), 3) %>'><%= confidence_level(alternative.z_score_score(score.name)) %></span>
+                <span title='z-score: <%= round(alternative.z_score_score(score), 3) %>'><%= confidence_level(alternative.z_score_score(score)) %></span>
                 <br>
               </div>
             </td>

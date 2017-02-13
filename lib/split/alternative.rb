@@ -42,9 +42,7 @@ module Split
 
     def scores
       return @scores if defined?(@scores)
-      experiment_data = Split.configuration.experiments[experiment_name.to_s] || Split.configuration.experiments[experiment_name.to_sym]
-      return (@scores = []) unless experiment_data
-      @scores = experiment_data[:scores] || experiment_data['scores'] || []
+      @scores = experiment ? experiment.scores : []
     end
 
     def p_winner(goal = nil)
@@ -147,7 +145,7 @@ module Split
 
     def experiment
       return @experiment if defined?(@experiment)
-      @experiment = Split::ExperimentCatalog.find(experiment_name)
+      @experiment = Split::Experiment.new(experiment_name)
     end
 
     def z_score(goal = nil)
