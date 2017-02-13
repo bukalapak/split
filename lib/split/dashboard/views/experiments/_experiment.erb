@@ -4,7 +4,7 @@
   <% experiment_class = "experiment" %>
 <% end %>
 
-<% experiment_defined = ::Split.configuration.experiment_for(experiment.name) %>
+<% experiment_defined = !experiment.alternatives.empty? %>
 
 <% experiment.calc_winning_alternatives if experiment_defined %>
 

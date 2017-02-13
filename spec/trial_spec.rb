@@ -38,7 +38,7 @@ describe Split::Trial do
     end
 
     it 'should load the alternative when the alternative name is set' do
-      experiment = Split::Experiment.new('basket_text', alternatives: %w(basket cart))
+      experiment = Split::Experiment.new('basket_text')
       experiment.save
 
       trial = Split::Trial.new(experiment: experiment, alternative: 'basket')
@@ -49,7 +49,7 @@ describe Split::Trial do
   describe 'metadata' do
     let(:metadata) { Hash[alternatives.map { |k| [k, "Metadata for #{k}"] }] }
     let(:experiment) do
-      Split::Experiment.new('basket_text', alternatives: alternatives, metadata: metadata).save
+      Split::Experiment.new('basket_text').save
     end
 
     it 'has metadata on each trial' do

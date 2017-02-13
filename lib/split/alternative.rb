@@ -11,8 +11,14 @@ module Split
 
     include Zscore
 
-    def initialize(name, experiment_name)
-      @experiment_name = experiment_name
+    def initialize(name, experiment)
+      if experiment.is_a?(::Split::Experiment)
+        @experiment_name = experiment.name
+        @experiment = experiment
+      else
+        @experiment_name = experiment
+      end
+
       if name.is_a?(Hash)
         @name = name.keys.first
         @weight = name.values.first

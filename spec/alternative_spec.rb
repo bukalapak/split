@@ -122,7 +122,7 @@ describe Split::Alternative do
           }
         }
       end
-      experiment = Split::Experiment.new('basket_text', alternatives: [{ 'Basket' => 0.6 }, { 'Cart' => 0.4 }])
+      experiment = Split::Experiment.new('basket_text')
       first = experiment.alternatives[0]
       expect(first.name).to eq('Basket')
       expect(first.weight).to eq(0.6)

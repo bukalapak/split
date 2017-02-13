@@ -7,10 +7,20 @@ require 'time'
 describe Split::Experiment do
   subject { Split::Experiment }
 
-  before(:example) do
+  before do
     Split.configuration.experiments = {
       link_color: {
-        alternatives: %w(blue red green)
+        alternatives: %w(blue red green),
+        goals: %w(checkout),
+        resettable: false,
+        metadata:
+        {
+          blue: 'squirtle',
+          red: 'charmender',
+          green: 'bulbasaur'
+        },
+        algorithm: '::Split::Algorithms::Whiplash',
+        scores: %w(score1 score2 score3)
       },
       basket_text: {
         alternatives: %w(Basket Cart)
@@ -18,8 +28,8 @@ describe Split::Experiment do
     }
   end
 
-  def new_experiment(goals = [], scores = [])
-    Split::Experiment.new('link_color', alternatives: %w(blue red green), goals: goals, scores: scores)
+  def new_experiment
+    Split::Experiment.new('link_color')
   end
 
   def alternative(color)
@@ -30,6 +40,8 @@ describe Split::Experiment do
 
   let(:blue) { alternative('blue') }
   let(:green) { alternative('green') }
+
+  let(:redis) { ::Split.redis }
 
   context 'with an experiment' do
     let(:experiment) { Split::Experiment.new('basket_text') }
@@ -152,37 +164,183 @@ describe Split::Experiment do
     end
   end
 
-  describe 'deleting' do
-    it 'should delete itself' do
-      experiment = Split::Experiment.new('basket_text', alternatives: %w(Basket Cart))
-      experiment.save
+  describe '#load_from_configuration' do
+    context 'when the experiment exist in configuration' do
+      subject { described_class.new(:link_color) }
+      before { subject.load_from_configuration }
 
-      experiment.delete
-      expect(Split.redis.exists('link_color')).to be false
+      it 'should load the alternatives' do
+        expect(subject.alternatives.map(&:name).sort).to eq(%w(blue green red))
+      end
+
+      it 'should load the goals' do
+        expect(subject.goals).to eq(['checkout'])
+      end
+
+      it 'should load the resettable' do
+        expect(subject.resettable).to eq(false)
+      end
+
+      it 'should load the metadata' do
+        expect(subject.metadata).to eq(
+          'blue' => 'squirtle',
+          'red' => 'charmender',
+          'green' => 'bulbasaur'
+        )
+      end
+
+      it 'should load the algorithm' do
+        expect(subject.algorithm).to eq(::Split::Algorithms::Whiplash)
+      end
+
+      it 'should load the scores' do
+        expect(subject.scores).to eq(%w(score1 score2 score3))
+      end
+    end
+
+    context 'when the experiment does not exist in configuration' do
+      subject { described_class.new(:link_text) }
+      it 'should do nothing' do
+        expect(subject.load_from_configuration).to be_nil
+      end
+    end
+  end
+
+  describe '#validate!' do
+    context 'when the experiment exist in configuration' do
+      subject { described_class.new(:link_color) }
+      it 'should validate the alternatives' do
+        expect { subject.validate! }.not_to raise_error
+        allow(subject).to receive(:alternatives).and_return([])
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+
+      it 'should validate the goals' do
+        expect { subject.validate! }.not_to raise_error
+        allow(subject).to receive(:goals).and_return([:goal1, :goal2])
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+
+      it 'should validate the metadata' do
+        expect { subject.validate! }.not_to raise_error
+        allow(subject).to receive(:metadata).and_return(blue: 'squirtle', red: 'charmender', black: 'cory')
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+
+      it 'should validate the algorithm' do
+        expect { subject.validate! }.not_to raise_error
+        allow(subject).to receive(:algorithm).and_return(String)
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+
+      it 'should validate the scores' do
+        expect { subject.validate! }.not_to raise_error
+        allow(subject).to receive(:scores).and_return([:score1, :score2])
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+    end
+
+    context 'when the experiment does not exist in configuration' do
+      subject { described_class.new(:link_text) }
+      it 'should raise an error' do
+        expect { subject.validate! }.to raise_error(::Split::ExperimentNotFound)
+      end
+    end
+  end
+
+  describe '#save' do
+    context 'when the experiment does not valid' do
+      subject { described_class.new(:link_color) }
+      before do
+        allow(subject).to receive(:alternatives).and_return([])
+      end
+      it 'should raise an error' do
+        expect(subject).not_to receive(:persist_configuration)
+        expect { subject.save }.to raise_error(::Split::InvalidExperimentsFormatError)
+      end
+    end
+
+    context 'when the experiment already saved before' do
+      subject { described_class.new(:link_color) }
+
+      before do
+        subject.save
+      end
+
+      it 'should do nothing' do
+        expect(subject).not_to receive(:persist_configuration)
+        subject.save
+      end
+    end
+
+    context 'when the experiment is new' do
+      subject { described_class.new(:link_color) }
+
+      it 'should persist its configuration into redis' do
+        subject.save
+        expect(redis.sismember(:experiments, subject.name)).to be(true)
+        expect(redis.lrange(subject.name, 0, -1)).to eq(subject.alternatives.map(&:name))
+        expect(redis.lrange("#{subject.name}:goals", 0, -1)).to eq(subject.goals)
+        expect(redis.lrange("#{subject.name}:scores", 0, -1)).to eq(subject.scores)
+      end
+    end
+  end
+
+  describe '#delete' do
+    subject { described_class.new('basket_text') }
+    before { subject.save }
+
+    it 'should delete itself' do
+      subject.delete
       expect(Split::ExperimentCatalog.find('link_color')).to be_nil
     end
 
     it 'should increment the version' do
-      expect(experiment.version).to eq(0)
-      experiment.delete
-      expect(experiment.version).to eq(1)
+      expect(subject.version).to eq(0)
+      subject.delete
+      expect(subject.version).to eq(1)
     end
 
     it 'should call the on_experiment_delete hook' do
       expect(Split.configuration.on_experiment_delete).to receive(:call)
-      experiment.delete
+      subject.delete
     end
 
     it 'should call the on_before_experiment_delete hook' do
       expect(Split.configuration.on_before_experiment_delete).to receive(:call)
-      experiment.delete
+      subject.delete
     end
 
     it 'should reset the start time if the experiment should be manually started' do
       Split.configuration.start_manually = true
-      experiment.start
-      experiment.delete
-      expect(experiment.start_time).to be_nil
+      subject.start
+      subject.delete
+      expect(subject.start_time).to be_nil
+    end
+
+    it 'should delete its persisted configuration' do
+      subject.delete
+      expect(redis.sismember(:experiments, subject.name)).to be(false)
+      expect(redis.exists(subject.name)).to be(false)
+      expect(redis.exists("#{subject.name}:goals")).to be(false)
+      expect(redis.exists("#{subject.name}:scores")).to be(false)
+    end
+  end
+
+  describe '#load_from_redis' do
+    subject { described_class.new('sample_experiment') }
+    before do
+      redis.sadd(:experiments, 'sample_experiment')
+      redis.rpush('sample_experiment', %w(alt1 alt2))
+      redis.rpush('sample_experiment:goals', %w(goal1 goal2))
+      redis.rpush('sample_experiment:scores', %w(score1 score2))
+    end
+
+    it 'should load experiment configuration from redis even if the experiment not defined in configuration' do
+      subject.load_from_redis
+      expect(subject.alternatives.map(&:name)).to eq(%w(alt1 alt2))
+      expect(subject.goals).to eq(%w(goal1 goal2))
+      expect(subject.scores).to eq(%w(score1 score2))
     end
   end
 

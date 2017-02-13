@@ -10,7 +10,7 @@ module Split
     attr_reader :metadata
     attr_reader :scores
 
-    def initialize(name, *_deprecated_for_spec_only)
+    def initialize(name)
       @name = name.to_s
       load_from_configuration
     end
@@ -66,7 +66,7 @@ module Split
 
     def winner
       return nil unless redis_data[:winner_name]
-      Split::Alternative.new(redis_data[:winner_name], name)
+      Split::Alternative.new(redis_data[:winner_name], self)
     end
 
     def has_winner?
@@ -80,7 +80,7 @@ module Split
     end
 
     def participant_count
-      alternatives.inject(0) { |sum, a| sum + a.participant_count }
+      alternatives.inject(0) { |acc, elem| acc + elem.participant_count }
     end
 
     def control
@@ -166,7 +166,7 @@ module Split
         redis.lrange("#{@name}:goals", 0, -1)
         redis.lrange("#{@name}:scores", 0, -1)
       end
-      @alternatives = redis_config[0].map { |alt_name| ::Split::Alternative.new(alt_name, @name) }
+      @alternatives = redis_config[0].map { |alt_name| ::Split::Alternative.new(alt_name, self) }
       @goals = redis_config[1]
       @scores = redis_config[2]
     end
@@ -224,7 +224,7 @@ module Split
         else
           []
         end
-      @alternatives = alt_names.map { |alt_name| ::Split::Alternative.new(alt_name, @name) }
+      @alternatives = alt_names.map { |alt_name| ::Split::Alternative.new(alt_name, self) }
     end
 
     def load_goals(config_hash)
@@ -244,7 +244,8 @@ module Split
 
     def load_metadata(config_hash)
       metadata_config = config_hash[:metadata]
-      @metadata = metadata_config.is_a?(Hash) ? metadata_config : nil
+      return (@metadata = nil) unless metadata_config.is_a?(Hash)
+      @metadata = metadata_config.map { |k, v| [k.to_s, v] }.to_h
     end
 
     def load_scores(config_hash)
@@ -253,12 +254,12 @@ module Split
     end
 
     def validate_alternatives!
-      raise InvalidExperimentsFormatError, 'Experiment must have one or more alternatives' if @alternatives.empty?
-      @alternatives.each(&:validate!)
+      raise InvalidExperimentsFormatError, 'Experiment must have one or more alternatives' if alternatives.empty?
+      alternatives.each(&:validate!)
     end
 
     def validate_goals!
-      return if @goals.all? { |goal| goal.is_a?(String) }
+      return if goals.all? { |goal| goal.is_a?(String) }
       raise InvalidExperimentsFormatError, 'Experiment goals must be of type String'
     end
 
@@ -266,17 +267,17 @@ module Split
       raise InvalidExperimentsFormatError, 'Unknown experiment algorithm' unless [
         Split::Algorithms::WeightedSample,
         Split::Algorithms::Whiplash
-      ].include?(@algorithm)
+      ].include?(algorithm)
     end
 
     def validate_metadata!
-      return unless @metadata
-      return if @metadata.keys.sort == @alternatives.map(&:name).sort
+      return unless metadata
+      return if metadata.keys.sort == alternatives.map(&:name).sort
       raise InvalidExperimentsFormatError, 'Experiment metadata keys must match with its alternatives'
     end
 
     def validate_scores!
-      return if @scores.all? { |score| score.is_a?(String) }
+      return if scores.all? { |score| score.is_a?(String) }
       raise InvalidExperimentsFormatError, 'Experiment scores must be of type String'
     end
 
@@ -285,7 +286,7 @@ module Split
         redis.sadd(:experiments, @name)
         redis.rpush(@name, @alternatives.map(&:name))
         redis.rpush("#{@name}:goals", @goals) unless @goals.empty?
-        redis.rpush("#{@name}:goals", @scores) unless @scores.empty?
+        redis.rpush("#{@name}:scores", @scores) unless @scores.empty?
       end
     end
 
