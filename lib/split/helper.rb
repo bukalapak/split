@@ -37,13 +37,13 @@ module Split
       with_user(user) do
         experiment_name = experiment_name.keys[0] if experiment_name.is_a? Hash
         experiment = ExperimentCatalog.find_or_initialize(experiment_name)
-        unless experiment.exist? || control
-          raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not found in the configuration."
+        unless experiment.valid? || control
+          raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not correctly defined in configuration."
         end
 
         # at this point, it is either experiment exists in config or caller passes control
         begin
-          if ::Split.configuration.enabled && experiment.exist?
+          if ::Split.configuration.enabled && experiment.valid?
             experiment.save
             trial = Trial.new(
               user: ab_user, experiment: experiment,

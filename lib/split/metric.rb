@@ -59,7 +59,7 @@ module Split
       metric = Split::Metric.find(metric_name)
       experiments << metric.experiments if metric
       experiment = Split::ExperimentCatalog.find(metric_name)
-      experiments << experiment if experiment
+      experiments << experiment if experiment&.valid?
       experiments.flatten
     end
 

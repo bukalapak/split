@@ -243,7 +243,7 @@ describe Split::Experiment do
     context 'when the experiment does not exist in configuration' do
       subject { described_class.new(:link_text) }
       it 'should raise an error' do
-        expect { subject.validate! }.to raise_error(::Split::ExperimentNotFound)
+        expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
       end
     end
   end

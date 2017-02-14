@@ -487,6 +487,15 @@ describe Split::Helper do
         ab_finished(@experiment_name)
       end
     end
+
+    context 'when the experiment does not exist in configuration but recognized from redis' do
+      before do
+        Split.redis.sadd(:experiments, 'dummy_experiment')
+      end
+      it 'should do nothing' do
+        expect(ab_finished(:dummy_experiment)).to be_nil
+      end
+    end
   end
 
   describe '.unscored_user_experiments' do
@@ -1463,7 +1472,7 @@ describe Split::Helper do
 
     it 'fails gracefully if config is missing alternatives' do
       Split.configuration.experiments[:my_experiment] = { foo: 'Bar' }
-      expect(-> { ab_test :my_experiment }).to raise_error(::Split::InvalidExperimentsFormatError)
+      expect(-> { ab_test :my_experiment }).to raise_error(::Split::ExperimentNotFound)
     end
   end
 

@@ -44,7 +44,6 @@ module Split
     end
 
     def validate!
-      raise ExperimentNotFound, "Experiment #{@name} not found" if @alternatives.nil?
       validate_alternatives!
       validate_goals!
       validate_metadata!
@@ -52,8 +51,11 @@ module Split
       validate_scores!
     end
 
-    def exist?
-      @alternatives
+    def valid?
+      validate!
+      true
+    rescue InvalidExperimentsFormatError
+      false
     end
 
     def new_record?
@@ -254,7 +256,7 @@ module Split
     end
 
     def validate_alternatives!
-      raise InvalidExperimentsFormatError, 'Experiment must have one or more alternatives' if alternatives.empty?
+      raise InvalidExperimentsFormatError, 'Experiment must have one or more alternatives' unless alternatives && !alternatives.empty?
       alternatives.each(&:validate!)
     end
 
