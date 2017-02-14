@@ -12,9 +12,11 @@ module Split
       keys_without_finished(user.keys).each do |key|
         experiment = ExperimentCatalog.find key_without_version(key)
         next unless experiment.nil? || experiment.has_winner? || experiment.start_time.nil?
+        experiment = ExperimentCatalog.find_or_initialize key_without_version(key)
+        experiment.load_from_redis
 
         deleted_keys = [key, Experiment.finished_key(key)]
-        score_names = ExperimentCatalog.find_or_initialize(key_without_version(key)).scores
+        score_names = experiment.scores
         score_names.each do |score_name|
           deleted_keys << Experiment.scored_key(key, score_name)
         end

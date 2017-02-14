@@ -54,6 +54,25 @@ describe Split::User do
       expect(@subject.keys).to be_empty
     end
 
+    context 'with experiments removed from configurations' do
+      before do
+        redis = ::Split.redis
+        redis.sadd(:experiments, 'removed_experiment')
+        redis.rpush('removed_experiment:scores', %w(score1 score2))
+      end
+      let(:user_keys) do
+        {
+          'removed_experiment' => 'alternative',
+          'removed_experiment:scored:score1' => true,
+          'removed_experiment:scored:score2' => true
+        }
+      end
+      it 'should remove experiment scored key' do
+        @subject.cleanup_old_experiments!
+        expect(@subject.keys).to be_empty
+      end
+    end
+
     context 'with finished key' do
       let(:user_keys) { { 'link_color' => 'blue', 'link_color:finished' => true } }
 
