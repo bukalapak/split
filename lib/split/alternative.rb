@@ -116,7 +116,7 @@ module Split
 
     def increment_score(score_name, value = 1)
       return nil unless scores.include?(score_name)
-      _, new_score = Split.redis.multi do
+      _, new_score = Split.redis.pipelined do
         Split.redis.hincrby(key, "score_participant_count:#{score_name}", 1)
         Split.redis.hincrby(key, "score:#{score_name}", value)
       end
