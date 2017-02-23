@@ -31,7 +31,7 @@ module Split
       end
 
       def []=(field, value)
-        Split.redis.multi do
+        Split.redis.pipelined do
           Split.redis.hset(redis_key, field, value)
           expire_seconds = self.class.config[:expire_seconds]
           Split.redis.expire(redis_key, expire_seconds) if expire_seconds
