@@ -151,7 +151,7 @@ module Split
         scores.each do |score_name|
           next unless score_name
           @scores[score_name] ||= []
-          exp = Split::ExperimentCatalog.find(experiment_name)
+          exp = Split::Experiment.new(experiment_name)
           @scores[score_name] << exp if exp
         end
       end

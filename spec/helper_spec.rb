@@ -520,8 +520,7 @@ describe Split::Helper do
     it 'should return all user experiments with given score unscored' do
       result = unscored_user_experiments('score2')
       expect(result.size).to eq(1)
-      expect(result.first[:experiment].name).to eq('experiment1')
-      expect(result.first[:alternative_name]).to eq('alt1')
+      expect(result.first.name).to eq('experiment1')
     end
   end
 

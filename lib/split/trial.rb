@@ -45,7 +45,10 @@ module Split
 
     def score!(score_name, score_value = 1)
       return unless alternative
-      alternative.increment_score(score_name, score_value)
+      ::Split.redis.multi do
+        alternative.increment_score(score_name, score_value)
+        @user[experiment.scored_key(score_name)] = true
+      end
     end
 
     # Choose an alternative, add a participant, and save the alternative choice on the user. This
