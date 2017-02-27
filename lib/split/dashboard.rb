@@ -24,7 +24,7 @@ module Split
 
     get '/experiments/:name' do
       @experiment = Split::ExperimentCatalog.find(params[:name])
-      @experiment.load_from_redis
+      @experiment.load_from_redis unless ::Split.configuration.experiment_for(@experiment.name)
       redirect url('/') unless @experiment
 
       @metrics = Split::Metric.all
