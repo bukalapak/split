@@ -26,14 +26,17 @@ module Split
         score.experiments
       end
 
-      def add_delayed(score_name, label, alternatives, value = 1, ttl = 60 * 60 * 24)
+      def add_delayed(score_name, label, trials, value = 1, ttl = 60 * 60 * 24)
         val_key = delayed_value_key(score_name, label)
         alt_key = delayed_alternatives_key(score_name, label)
         Split.redis.multi do
           Split.redis.set(val_key, value)
-          Split.redis.sadd(alt_key, alternatives.map(&:key))
+          Split.redis.sadd(alt_key, trials.map(&:alternative).map(&:key))
           Split.redis.expire(val_key, ttl)
           Split.redis.expire(alt_key, ttl)
+          trials.each do |trial|
+            trial.user[trial.experiment.scored_key(score_name)] = true
+          end
         end
       end
 
@@ -43,10 +46,10 @@ module Split
         value = delayed_value(score_name, label)
         alternatives = delayed_alternatives(score_name, label)
         Split.redis.multi do
+          Split.redis.del(val_key)
+          Split.redis.del(alt_key)
           alternatives.each do |alternative|
             alternative.increment_score(score_name, value)
-            Split.redis.del(val_key)
-            Split.redis.del(alt_key)
           end
         end
       end

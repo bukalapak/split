@@ -33,7 +33,7 @@ module Split
     end
 
     def ==(other)
-      name == other&.name && experiment_name == other&.experiment_name
+      name == other.name && experiment_name == other.experiment_name
     end
 
     def goals

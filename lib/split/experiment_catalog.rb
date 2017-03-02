@@ -17,11 +17,11 @@ module Split
       experiment.new_record? ? nil : experiment
     end
 
-    def self.find_or_initialize(experiment_name, *_deprecated)
+    def self.find_or_initialize(experiment_name)
       ::Split::Experiment.new(experiment_name)
     end
 
-    def self.find_or_create(experiment_name, *_deprecated)
+    def self.find_or_create(experiment_name)
       experiment = find_or_initialize(experiment_name)
       experiment.save
     end

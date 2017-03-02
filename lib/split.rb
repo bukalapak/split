@@ -7,7 +7,6 @@
    experiment_catalog
    extensions
    helper
-   metric
    persistence
    score
    trial

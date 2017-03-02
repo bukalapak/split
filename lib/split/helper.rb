@@ -36,36 +36,29 @@ module Split
     def ab_test(experiment_name, control = nil, *_alternatives, user: nil)
       with_user(user) do
         experiment_name = experiment_name.keys[0] if experiment_name.is_a? Hash
-        experiment = ExperimentCatalog.find_or_initialize(experiment_name)
+        experiment = ::Split::Experiment.new(experiment_name)
         unless experiment.valid? || control
           raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not correctly defined in configuration."
         end
 
         # at this point, it is either experiment exists in config or caller passes control
         begin
-          if ::Split.configuration.enabled && experiment.valid?
-            experiment.save
-            trial = Trial.new(
-              user: ab_user, experiment: experiment,
-              override: override_alternative(experiment.name), exclude: exclude_visitor?,
-              disabled: split_generically_disabled?
-            )
-            alternative = trial.choose!(self).name
-          else
-            alternative =
-              if ::Split.configuration.enabled && experiment.has_winner? # backward compatibility with inline config
-                experiment.winner.name
-              else
-                control_variable(control || experiment.control)
-              end
-          end
+          alternative =
+            if control # backward compatibility
+              experiment.has_winner? ? experiment.winner.name : control_variable(control)
+            elsif ::Split.configuration.enabled
+              experiment.save
+              trial = Trial.new(ab_user, experiment, self)
+              trial.choose!(override_alternative(experiment_name)).name
+            else
+              control_variable(experiment.control)
+            end
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise(e) unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
 
           if Split.configuration.db_failover_allow_parameter_override
-            alternative = override_alternative(experiment.name) if override_present?(experiment.name)
-            alternative = control_variable(experiment.control) if split_generically_disabled?
+            alternative = override_alternative(experiment_name) if override_present?(experiment_name)
           end
         ensure
           alternative ||= control_variable(control || experiment.control)
@@ -80,44 +73,18 @@ module Split
       end
     end
 
-    def reset!(experiment)
-      deleted_keys = [experiment.key]
-      experiment.scores.each do |score_name|
-        deleted_keys << experiment.scored_key(score_name)
-      end
-      ab_user.delete(*deleted_keys)
-    end
-
-    def finish_experiment(experiment, options = { reset: true })
-      return true if experiment.has_winner?
-
-      is_finished, chosen_alternative = ab_user.multi_get(experiment.finished_key, experiment.key)
-      should_reset = experiment.resettable? && options[:reset]
-      return true if is_finished && !should_reset
-
-      alternative_name = chosen_alternative
-      trial = Trial.new(user: ab_user, experiment: experiment, alternative: alternative_name)
-      trial.complete!(options[:goals], self)
-
-      if should_reset
-        reset!(experiment)
-      else
-        ab_user[experiment.finished_key] = true
-      end
-    end
-
-    def ab_finished(metric_descriptor, options = { reset: true, user: nil })
+    def ab_finished(metric_descriptor, options = { user: nil })
+      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
         begin
-          return if exclude_visitor? || Split.configuration.disabled?
-          metric_descriptor, goals = normalize_metric(metric_descriptor)
-          experiments = Metric.possible_experiments(metric_descriptor)
+          experiment_name, goal = normalize_metric(metric_descriptor)
+          experiment = ::Split::Experiment.new(experiment_name)
+          return if experiment.has_winner? || !experiment.valid?
 
-          if experiments.any?
-            experiments.each do |experiment|
-              finish_experiment(experiment, options.merge(goals: goals))
-            end
-          end
+          reset = options.key?(:reset) ? options[:reset] : experiment.resettable?
+          return if ab_user[experiment.finished_key] && !reset
+
+          Trial.new(ab_user, experiment, self).complete!(goal: goal, reset: reset)
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
@@ -126,6 +93,7 @@ module Split
     end
 
     def ab_test_result(experiment_name, options = { user: nil })
+      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
         begin
           experiment = ExperimentCatalog.find(experiment_name)
@@ -141,19 +109,18 @@ module Split
     def unscored_user_experiments(score_name, options = { user: nil })
       with_user(options[:user]) do
         Score.possible_experiments(score_name).reject do |experiment|
-          already_scored = ab_user[experiment.scored_key(score_name)]
-          experiment.has_winner? || already_scored
+          experiment.has_winner? || ab_user[experiment.scored_key(score_name)]
         end
       end
     end
 
     def ab_score(score_name, score_value = 1, options = { user: nil })
+      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
         begin
-          return if exclude_visitor? || Split.configuration.disabled?
           score_name = score_name.to_s
           trials = unscored_user_experiments(score_name).map do |experiment|
-            Trial.new(user: ab_user, experiment: experiment, alternative: ab_user[experiment.key])
+            Trial.new(ab_user, experiment, self)
           end
           Split.redis.pipelined do
             trials.each do |trial|
@@ -168,22 +135,14 @@ module Split
     end
 
     def ab_add_delayed_score(score_name, label, score_value = 1, ttl = 60 * 60 * 24, options = { user: nil })
+      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
         begin
-          return if exclude_visitor? || Split.configuration.disabled?
           score_name = score_name.to_s
-          unscored_experiments = unscored_user_experiments(score_name)
-          alternatives = unscored_experiments.map do |experiment|
-            Alternative.new(ab_user[experiment.key], experiment)
-          end.select do |alternative|
-            alternative.scores.include?(score_name)
+          trials = unscored_user_experiments(score_name).map do |experiment|
+            Trial.new(ab_user, experiment, self)
           end
-          Split.redis.multi do
-            Score.add_delayed(score_name, label, alternatives, score_value, ttl)
-            unscored_experiments.each do |experiment|
-              ab_user[experiment.scored_key(score_name)] = true
-            end
-          end
+          Score.add_delayed(score_name, label, trials, score_value, ttl)
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
@@ -204,11 +163,11 @@ module Split
 
       score_name = score_name.to_s
       alternative_name = alternative_name.to_s
-      experiment = ExperimentCatalog.find(experiment_name)
-      return unless experiment && experiment.scores.include?(score_name)
+      experiment = ::Split::Experiment.new(experiment_name.to_s)
+      return unless experiment.valid? && experiment.scores.include?(score_name)
 
-      trial = Trial.new(experiment: experiment, alternative: alternative_name)
-      trial.score!(score_name, score_value)
+      alternative = experiment.alternatives.find { |alt| alt.name == alternative_name }
+      alternative&.increment_score(score_name, score_value)
     rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
       raise unless Split.configuration.db_failover
       Split.configuration.db_failover_on_db_error.call(e)
@@ -220,10 +179,6 @@ module Split
 
     def override_alternative(experiment_name)
       defined?(params) && params[OVERRIDE_PARAM_NAME] && params[OVERRIDE_PARAM_NAME][experiment_name]
-    end
-
-    def split_generically_disabled?
-      defined?(params) && params['SPLIT_DISABLE']
     end
 
     def ab_user
@@ -254,12 +209,12 @@ module Split
     def normalize_metric(metric_descriptor)
       if metric_descriptor.is_a?(Hash)
         experiment_name = metric_descriptor.keys.first
-        goals = Array(metric_descriptor.values.first)
+        goal = metric_descriptor.values.first
       else
         experiment_name = metric_descriptor
-        goals = []
+        goal = nil
       end
-      [experiment_name, goals]
+      [experiment_name, goal]
     end
 
     def control_variable(control)

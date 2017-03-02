@@ -30,14 +30,6 @@ describe Split::Dashboard do
     Split::ExperimentCatalog.find_or_create('link_color')
   end
 
-  let(:experiment_with_goals) do
-    Split::ExperimentCatalog.find_or_create('link_color')
-  end
-
-  let(:metric) do
-    Split::Metric.find_or_create(name: 'testmetric', experiments: [experiment, experiment_with_goals])
-  end
-
   let(:red_link) { link('red') }
   let(:blue_link) { link('blue') }
 
@@ -53,28 +45,17 @@ describe Split::Dashboard do
 
     context 'experiment without goals' do
       it 'should display a Start button' do
-        experiment
         get "experiments/#{experiment.name}"
         expect(last_response.body).to include('Start')
 
         post "/start?experiment=#{experiment.name}"
         get "experiments/#{experiment.name}"
         expect(last_response.body).to include('Reset Data')
-        expect(last_response.body).not_to include('Metrics:')
-      end
-    end
-
-    context 'experiment with metrics' do
-      it 'should display the names of associated metrics' do
-        metric
-        get "/experiments/#{experiment.name}"
-        expect(last_response.body).to include('Metrics:testmetric')
       end
     end
 
     context 'with goals' do
       it 'should display a Start button' do
-        experiment_with_goals
         get "/experiments/#{experiment.name}"
         expect(last_response.body).to include('Start')
 

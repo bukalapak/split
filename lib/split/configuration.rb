@@ -119,21 +119,17 @@ module Split
     def metrics
       return @metrics if defined?(@metrics)
       @metrics = {}
-      if experiments
-        experiments.each do |key, value|
-          metrics =
-            begin
-              value_for(value, :metric)
-            rescue
-              nil
-            end
-          Array(metrics).each do |metric_name|
-            if metric_name
-              @metrics[metric_name.to_sym] ||= []
-              @metrics[metric_name.to_sym] << Split::Experiment.new(key)
-            end
+      return @metrics unless experiments
+      experiments.each do |key, value|
+        metric =
+          begin
+            value_for(value, :metric)
+          rescue
+            nil
           end
-        end
+        next unless metric
+        @metrics[metric.to_sym] ||= []
+        @metrics[metric.to_sym] << Split::Experiment.new(key)
       end
       @metrics
     end
@@ -151,8 +147,7 @@ module Split
         scores.each do |score_name|
           next unless score_name
           @scores[score_name] ||= []
-          exp = Split::Experiment.new(experiment_name)
-          @scores[score_name] << exp if exp
+          @scores[score_name] << Split::Experiment.new(experiment_name)
         end
       end
       @scores
@@ -229,7 +224,7 @@ module Split
 
     def initialize
       @ignore_ip_addresses = []
-      @ignore_filter = proc { |_request| is_robot? || is_ignored_ip_address? }
+      @ignore_filter = proc { false }
       @db_failover = false
       @db_failover_on_db_error = proc { |error| } # e.g. use Rails logger here
       @on_experiment_reset = proc { |experiment| }

@@ -27,8 +27,6 @@ module Split
       @experiment.load_from_redis unless ::Split.configuration.experiment_for(@experiment.name)
       redirect url('/') unless @experiment
 
-      @metrics = Split::Metric.all
-
       erb :'experiments/show'
     end
 

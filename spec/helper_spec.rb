@@ -27,9 +27,7 @@ describe Split::Helper do
     }
   end
 
-  let(:experiment) do
-    Split::ExperimentCatalog.find_or_create('link_color')
-  end
+  let(:experiment) { Split::ExperimentCatalog.find_or_create('link_color') }
 
   describe '.with_user' do
     let(:original_user) { double('original_user', id: 1) }
@@ -173,18 +171,6 @@ describe Split::Helper do
       ab_test('link_color')
     end
 
-    it 'SPLIT_DISABLE query parameter should also force the alternative (uses control)' do
-      @params = { 'SPLIT_DISABLE' => 'true' }
-      alternative = ab_test('link_color')
-      expect(alternative).to eq('blue')
-    end
-
-    it 'should not store the split when Split generically disabled' do
-      @params = { 'SPLIT_DISABLE' => 'true' }
-      expect(ab_user).not_to receive(:[]=)
-      ab_test('link_color')
-    end
-
     context 'when store_override is set' do
       before { Split.configuration.store_override = true }
 
@@ -312,9 +298,9 @@ describe Split::Helper do
 
     context 'when called with with alternatives/goals as its argument' do
       context 'when the experiment is defined in configuration' do
-        it 'should ignore passed alternatives/goals and proceed as usual' do
+        it 'should return passed control' do
           alternative = ab_test({ link_color: %w(goal_one goal_two) }, { 'cyan' => 1 }, 'magenta' => 2)
-          expect(%w(blue red)).to include(alternative)
+          expect(alternative).to eq('cyan')
         end
       end
 
@@ -432,7 +418,7 @@ describe Split::Helper do
     end
 
     it 'should not increment the counter for an ended experiment' do
-      e = Split::ExperimentCatalog.find_or_create('button_size', 'small', 'big')
+      e = Split::ExperimentCatalog.find_or_create('button_size')
       e.winner = 'small'
       a = ab_test('button_size', 'small', 'big')
       expect(a).to eq('small')
@@ -751,9 +737,8 @@ describe Split::Helper do
 
     context 'with current experiments having given score name' do
       it 'should store the delayed score data' do
-        alternatives = [Split::Alternative.new('alt1', 'experiment1')]
-        allow(Split::Score).to receive(:add_delayed).with('score2', 'sample_label', alternatives, 100, 2).and_return(nil)
-        expect(Split::Score).to receive(:add_delayed).with('score2', 'sample_label', alternatives, 100, 2).once
+        trials = [Split::Trial.new(ab_user, Split::ExperimentCatalog.find(:experiment1))]
+        expect(Split::Score).to receive(:add_delayed).once
         ab_add_delayed_score('score2', 'sample_label', 100, 2)
       end
     end
@@ -833,9 +818,9 @@ describe Split::Helper do
         }
       }
       alternative = ab_test(:my_experiment)
-      experiment = Split::ExperimentCatalog.find :my_experiment
+      experiment = Split::ExperimentCatalog.find(:my_experiment)
 
-      ab_finished :my_experiment
+      ab_finished(:my_experiment)
       expect(ab_user[experiment.key]).to eq(alternative)
       expect(ab_user[experiment.finished_key]).to eq(true)
     end
@@ -852,86 +837,6 @@ describe Split::Helper do
       ab_finished :my_experiment
       expect(ab_user[experiment.key]).to be_nil
       expect(ab_user[experiment.finished_key]).to be_nil
-    end
-  end
-
-  context 'finished with metric name' do
-    before { Split.configuration.experiments = {} }
-    before { expect(Split::Alternative).to receive(:new).at_least(1).times.and_call_original }
-
-    def should_finish_experiment(experiment_name, should_finish = true)
-      alts = Split.configuration.experiments[experiment_name][:alternatives]
-      experiment = Split::ExperimentCatalog.find_or_create(experiment_name, *alts)
-      alt_name = ab_user[experiment.key] = alts.first
-      alt = double('alternative')
-      expect(alt).to receive(:name).at_most(1).times.and_return(alt_name)
-      expect(Split::Alternative).to receive(:new).at_most(1).times.with(alt_name, experiment_name.to_s).and_return(alt)
-      if should_finish
-        expect(alt).to receive(:increment_completion).at_most(1).times
-      else
-        expect(alt).not_to receive(:increment_completion)
-      end
-    end
-
-    it 'completes the test' do
-      Split.configuration.experiments[:my_experiment] = {
-        alternatives: %w(control_opt other_opt),
-        metric: :my_metric
-      }
-      should_finish_experiment :my_experiment
-      ab_finished :my_metric
-    end
-
-    it 'completes all relevant tests' do
-      Split.configuration.experiments = {
-        exp_1: {
-          alternatives: ['1-1', '1-2'],
-          metric: :my_metric
-        },
-        exp_2: {
-          alternatives: ['2-1', '2-2'],
-          metric: :another_metric
-        },
-        exp_3: {
-          alternatives: ['3-1', '3-2'],
-          metric: :my_metric
-        }
-      }
-      should_finish_experiment :exp_1
-      should_finish_experiment :exp_2, false
-      should_finish_experiment :exp_3
-      ab_finished :my_metric
-    end
-
-    it 'passes reset option' do
-      Split.configuration.experiments = {
-        my_exp: {
-          alternatives: %w(one two),
-          metric: :my_metric,
-          resettable: false
-        }
-      }
-      alternative_name = ab_test(:my_exp)
-      exp = Split::ExperimentCatalog.find :my_exp
-
-      ab_finished :my_metric
-      expect(ab_user[exp.key]).to eq(alternative_name)
-      expect(ab_user[exp.finished_key]).to be_truthy
-    end
-
-    it 'passes through options' do
-      Split.configuration.experiments = {
-        my_exp: {
-          alternatives: %w(one two),
-          metric: :my_metric
-        }
-      }
-      alternative_name = ab_test(:my_exp)
-      exp = Split::ExperimentCatalog.find :my_exp
-
-      ab_finished :my_metric, reset: false
-      expect(ab_user[exp.key]).to eq(alternative_name)
-      expect(ab_user[exp.finished_key]).to be_truthy
     end
   end
 
@@ -1013,7 +918,7 @@ describe Split::Helper do
 
   describe 'when user is a robot' do
     before(:each) do
-      @request = OpenStruct.new(user_agent: 'Googlebot/2.1 (+http://www.google.com/bot.html)')
+      request.user_agent = 'Googlebot/2.1 (+http://www.google.com/bot.html)'
     end
 
     describe 'ab_test' do
@@ -1054,7 +959,7 @@ describe Split::Helper do
     context 'using a proc to configure custom logic' do
       before(:each) do
         Split.configure do |c|
-          c.ignore_filter = proc { |_request| true } # ignore everything
+          c.ignore_filter = proc { true } # ignore everything
         end
       end
 
@@ -1106,7 +1011,7 @@ describe Split::Helper do
   describe 'when ip address is ignored' do
     context 'individually' do
       before(:each) do
-        @request = OpenStruct.new(ip: '81.19.48.130')
+        request.ip = '81.19.48.130'
         Split.configure do |c|
           c.ignore_ip_addresses << '81.19.48.130'
         end
@@ -1117,7 +1022,7 @@ describe Split::Helper do
 
     context 'for a range' do
       before(:each) do
-        @request = OpenStruct.new(ip: '81.19.48.129')
+        request.ip = '81.19.48.129'
         Split.configure do |c|
           c.ignore_ip_addresses << /81\.19\.48\.[0-9]+/
         end
@@ -1128,7 +1033,7 @@ describe Split::Helper do
 
     context 'using both a range and a specific value' do
       before(:each) do
-        @request = OpenStruct.new(ip: '81.19.48.128')
+        request.ip = '81.19.48.128'
         Split.configure do |c|
           c.ignore_ip_addresses << '81.19.48.130'
           c.ignore_ip_addresses << /81\.19\.48\.[0-9]+/
@@ -1140,7 +1045,7 @@ describe Split::Helper do
 
     context 'when ignored other address' do
       before do
-        @request = OpenStruct.new(ip: '1.1.1.1')
+        request.ip = '1.1.1.1'
         Split.configure do |c|
           c.ignore_ip_addresses << '81.19.48.130'
         end
@@ -1517,7 +1422,7 @@ describe Split::Helper do
       it 'should increment the counter for the specified-goal completed alternative' do
         expect(lambda do
           expect(lambda do
-            ab_finished('link_color' => ['purchase'])
+            ab_finished('link_color' => 'purchase')
           end).not_to change {
             Split::Alternative.new(@alternative_name, @experiment_name).completed_count(@goal2)
           }
