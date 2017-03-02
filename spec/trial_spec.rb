@@ -16,7 +16,7 @@ describe Split::Trial do
     end
   end
 
-  let(:context) { double(on_trial_callback: 'test callback', request: double(user_agent: '007', ip: 'man')) }
+  let(:context) { double(on_trial_callback: 'test callback', request: double(user_agent: '007', ip: 'man'), on_trial_complete_callback: 'test callback') }
   let(:user) { mock_user }
   let(:alternatives) { %w(basket cart) }
   let(:experiment) { Split::Experiment.new('basket_text').save }
@@ -199,7 +199,43 @@ describe Split::Trial do
 
     before { trial.choose! }
 
+    shared_examples_for 'trial with complete callback' do
+      it 'does not run if on_trial_complete callback is not respondable' do
+        Split.configuration.on_trial_complete = :foo
+        allow(context).to receive(:respond_to?).and_return true
+        allow(context).to receive(:respond_to?).with(:foo, true).and_return false
+        expect(context).to_not receive(:foo)
+        trial.complete!
+      end
+      it 'runs on_trial_complete callback' do
+        Split.configuration.on_trial_complete = :on_trial_complete_callback
+        expect(context).to receive(:on_trial_complete_callback)
+        trial.complete!
+      end
+      it 'does not run nil on_trial callback' do
+        Split.configuration.on_trial = nil
+        expect(context).not_to receive(:on_trial_complete_callback)
+        trial.complete!
+      end
+      it 'still has trial attributes when the callback gets called' do
+        allow(context).to receive(:respond_to?).and_return(true)
+        allow(context).to receive(:alternative_name) { |t| t.alternative.name }
+        Split.configuration.on_trial_complete = :alternative_name
+        expect { trial.complete!(reset: true) }.to_not raise_error
+      end
+    end
+
+    shared_examples_for 'invalid trial to complete' do
+      it 'should do nothing and return nil' do
+        expect(trial).to_not receive(:run_callback)
+        g = defined?(goal) ? goal : nil
+        expect(trial.complete!(goal: g)).to eq(nil)
+      end
+    end
+
     context 'when there are no goals' do
+      it_behaves_like 'trial with complete callback'
+
       it 'should complete the trial' do
         expect { trial.complete! }.to change { alternative.completed_count }.by(1)
       end
@@ -207,6 +243,8 @@ describe Split::Trial do
 
     context 'with a goal' do
       let(:goal) { experiment.goals.first }
+
+      it_behaves_like 'trial with complete callback'
 
       it 'should complete the trial with the goal' do
         expect { trial.complete!(goal: goal) }.to change { alternative.completed_count(goal) }.by(1)
@@ -219,20 +257,49 @@ describe Split::Trial do
 
     context 'with reset option' do
       context 'true' do
-        before { trial.complete!(reset: true) }
+        let(:reset) { true }
+        it_behaves_like 'trial with complete callback'
 
         it 'should delete user data for the trial' do
+          trial.complete!(reset: reset)
           expect(user.keys.select { |key| key =~ /^#{experiment.key}/ }).to be_empty
         end
       end
 
       context 'false' do
-        before { trial.complete!(reset: false) }
+        let(:reset) { false }
+        it_behaves_like 'trial with complete callback'
 
         it 'should flag the user as finished trial' do
+          trial.complete!(reset: reset)
           expect(user[experiment.finished_key]).to be_truthy
         end
       end
+    end
+
+    context 'when the trial has yet to choose alternative' do
+      before { trial.reset! }
+      it_behaves_like 'invalid trial to complete'
+    end
+
+    context 'with invalid goal' do
+      let(:goal) { 'invalid_goal' }
+      it_behaves_like 'invalid trial to complete'
+    end
+
+    context 'when split is disabled' do
+      before { Split.configuration.enabled = false }
+      it_behaves_like 'invalid trial to complete'
+    end
+
+    context 'when the trial is not valid' do
+      before { allow(trial).to receive(:valid?).and_return(false) }
+      it_behaves_like 'invalid trial to complete'
+    end
+
+    context 'when the trial is already completed' do
+      before { trial.complete! }
+      it_behaves_like 'invalid trial to complete'
     end
   end
 

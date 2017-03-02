@@ -80,11 +80,9 @@ module Split
           experiment_name, goal = normalize_metric(metric_descriptor)
           experiment = ::Split::Experiment.new(experiment_name)
           return if experiment.has_winner? || !experiment.valid?
+          return if ab_user[experiment.finished_key] && !options[:reset]
 
-          reset = options.key?(:reset) ? options[:reset] : experiment.resettable?
-          return if ab_user[experiment.finished_key] && !reset
-
-          Trial.new(ab_user, experiment, self).complete!(goal: goal, reset: reset)
+          Trial.new(ab_user, experiment, self).complete!(options.merge(goal: goal))
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
