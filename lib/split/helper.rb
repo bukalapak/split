@@ -109,7 +109,7 @@ module Split
     def unscored_user_experiments(score_name, options = { user: nil })
       with_user(options[:user]) do
         Score.possible_experiments(score_name).reject do |experiment|
-          experiment.has_winner? || ab_user[experiment.scored_key(score_name)]
+          experiment.has_winner? || ab_user[experiment.scored_key(score_name)] || !ab_user[experiment.key]
         end
       end
     end

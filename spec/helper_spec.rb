@@ -508,6 +508,11 @@ describe Split::Helper do
       expect(result.size).to eq(1)
       expect(result.first.name).to eq('experiment1')
     end
+
+    it 'should not return experiments not participated by the user' do
+      ab_user['experiment2'] = nil
+      expect(unscored_user_experiments('score1')).to_not include(Split::ExperimentCatalog.find(:experiment2))
+    end
   end
 
   # TODO: dry
