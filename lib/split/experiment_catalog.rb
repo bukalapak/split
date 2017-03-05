@@ -9,7 +9,7 @@ module Split
 
     # Return experiments without a winner (considered "active") first
     def self.all_active_first
-      all.partition { |e| !e.winner }.map { |es| es.sort_by(&:name) }
+      all.partition { |e| !e.winner }.map { |es| es.sort { |a, b| b.start_time.to_s <=> a.start_time.to_s } }
     end
 
     def self.find(name)

@@ -32,6 +32,7 @@
         <% @experiments.last.each do |experiment| %>
           <tr class="experiment" data-name="<%= experiment.name %>">
             <td><a href="<%= url "/experiments/#{experiment.name}" %>"><%= experiment.name %></a></td>
+            <td align="right"><small><%= experiment.start_time ? experiment.start_time.strftime('%Y-%m-%d %H:%M') : 'Not started' %></small></td>
           </trl>
         <% end %>
       </table>
