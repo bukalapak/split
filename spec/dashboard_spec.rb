@@ -33,6 +33,27 @@ describe Split::Dashboard do
   let(:red_link) { link('red') }
   let(:blue_link) { link('blue') }
 
+  shared_examples_for 'logged events' do
+    context 'with default logger config' do
+      it 'should log the event to STDOUT' do
+        expect { event_proc.call }.to output(/#{experiment.name}: #{event}/).to_stdout_from_any_process
+      end
+    end
+
+    context 'with custom logger config' do
+      before do
+        Split.configuration.logger = Logger.new(STDERR)
+        Split.configuration.logger_proc = lambda do |logger, experiment_name, event|
+          logger.info("#{event}ing #{experiment_name}")
+        end
+      end
+
+      it 'should log the event as configured' do
+        expect { event_proc.call }.to output(/#{event}ing #{experiment.name}/).to_stderr_from_any_process
+      end
+    end
+  end
+
   it 'should respond to /' do
     get '/'
     expect(last_response).to be_ok
@@ -42,6 +63,10 @@ describe Split::Dashboard do
     before do
       Split.configuration.start_manually = true
     end
+
+    let(:event_proc) { -> { post "/start?experiment=#{experiment.name}" } }
+    let(:event) { 'start' }
+    it_behaves_like 'logged events'
 
     context 'experiment without goals' do
       it 'should display a Start button' do
@@ -103,6 +128,10 @@ describe Split::Dashboard do
   describe 'reopen experiment' do
     before { experiment.winner = 'red' }
 
+    let(:event_proc) { -> { post "/reopen?experiment=#{experiment.name}" } }
+    let(:event) { 'reopen' }
+    it_behaves_like 'logged events'
+
     it 'redirects' do
       post "/reopen?experiment=#{experiment.name}"
 
@@ -128,41 +157,59 @@ describe Split::Dashboard do
     end
   end
 
-  it 'should reset an experiment' do
-    red_link.participant_count = 5
-    blue_link.participant_count = 7
-    experiment.winner = 'blue'
+  describe 'reset experiment' do
+    let(:event_proc) { -> { post "/reset?experiment=#{experiment.name}" } }
+    let(:event) { 'reset' }
+    it_behaves_like 'logged events'
 
-    post "/reset?experiment=#{experiment.name}"
+    it 'should reset an experiment' do
+      red_link.participant_count = 5
+      blue_link.participant_count = 7
+      experiment.winner = 'blue'
 
-    # hef 2 reload because of memoiza tion
-    updated_experiment = Split::ExperimentCatalog.find(experiment.name)
+      post "/reset?experiment=#{experiment.name}"
 
-    expect(last_response).to be_redirect
+      # hef 2 reload because of memoiza tion
+      updated_experiment = Split::ExperimentCatalog.find(experiment.name)
 
-    new_red_count = red_link.participant_count
-    new_blue_count = blue_link.participant_count
+      expect(last_response).to be_redirect
 
-    expect(new_blue_count).to eq(0)
-    expect(new_red_count).to eq(0)
-    expect(updated_experiment.winner).to be_nil
+      new_red_count = red_link.participant_count
+      new_blue_count = blue_link.participant_count
+
+      expect(new_blue_count).to eq(0)
+      expect(new_red_count).to eq(0)
+      expect(updated_experiment.winner).to be_nil
+    end
   end
 
-  it 'should delete an experiment' do
-    delete "/experiment?experiment=#{experiment.name}"
-    expect(last_response).to be_redirect
-    expect(Split::ExperimentCatalog.find(experiment.name)).to be_nil
+  describe 'delete experiment' do
+    let(:event_proc) { -> { delete "/experiment?experiment=#{experiment.name}" } }
+    let(:event) { 'delete' }
+    it_behaves_like 'logged events'
+
+    it 'should delete an experiment' do
+      delete "/experiment?experiment=#{experiment.name}"
+      expect(last_response).to be_redirect
+      expect(Split::ExperimentCatalog.find(experiment.name)).to be_nil
+    end
   end
 
-  it 'should mark an alternative as the winner' do
-    expect(experiment.winner).to be_nil
-    post "/experiment?experiment=#{experiment.name}", alternative: 'red'
+  describe 'set experiment winner' do
+    let(:event_proc) { -> { post "/experiment?experiment=#{experiment.name}", alternative: 'red' } }
+    let(:event) { 'set_winner' }
+    it_behaves_like 'logged events'
 
-    # hef 2 reload because of memoization
-    updated_experiment = Split::ExperimentCatalog.find(experiment.name)
+    it 'should mark an alternative as the winner' do
+      expect(experiment.winner).to be_nil
+      post "/experiment?experiment=#{experiment.name}", alternative: 'red'
 
-    expect(last_response).to be_redirect
-    expect(updated_experiment.winner.name).to eq('red')
+      # hef 2 reload because of memoization
+      updated_experiment = Split::ExperimentCatalog.find(experiment.name)
+
+      expect(last_response).to be_redirect
+      expect(updated_experiment.winner.name).to eq('red')
+    end
   end
 
   it 'should display the start date' do

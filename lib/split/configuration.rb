@@ -1,4 +1,6 @@
 # frozen_string_literal: true
+require 'logger'
+
 module Split
   class Configuration
     attr_accessor :bots
@@ -26,6 +28,8 @@ module Split
     attr_accessor :include_rails_helper
     attr_accessor :beta_probability_simulations
     attr_accessor :redis
+    attr_accessor :logger
+    attr_accessor :logger_proc
 
     attr_reader :experiments
 
@@ -241,6 +245,8 @@ module Split
       @include_rails_helper = true
       @beta_probability_simulations = ENV['RACK_ENV'] == 'test' ? 1000 : 10_000 # just to speed up the test
       @redis = ENV.fetch(ENV.fetch('REDIS_PROVIDER', 'REDIS_URL'), 'redis://localhost:6379')
+      @logger = Logger.new(STDOUT)
+      @logger_proc = ->(logger, experiment_name, event) { logger.info("#{experiment_name}: #{event}") }
     end
 
     def redis_url=(value)

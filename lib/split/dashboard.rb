@@ -39,31 +39,51 @@ module Split
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @alternative = Split::Alternative.new(params[:alternative], params[:experiment])
       @experiment.winner = @alternative.name
+
+      log_action(@experiment, 'set_winner')
       redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/start' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.start
+
+      log_action(@experiment, 'start')
       redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/reset' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.reset
+
+      log_action(@experiment, 'reset')
       redirect url("/experiments/#{params[:experiment]}")
     end
 
     post '/reopen' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.delete_winner
+
+      log_action(@experiment, 'reopen')
       redirect url("/experiments/#{params[:experiment]}")
     end
 
     delete '/experiment' do
       @experiment = Split::ExperimentCatalog.find(params[:experiment])
       @experiment.delete
+
+      log_action(@experiment, 'delete')
       redirect url("/experiments/#{params[:experiment]}")
+    end
+
+    private
+
+    def log_action(experiment, event)
+      Split.configuration.logger_proc.call(logger, experiment.name, event)
+    end
+
+    def logger
+      Split.configuration.logger
     end
   end
 end
