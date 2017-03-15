@@ -12,9 +12,11 @@ module Split
       keys_without_finished(user.keys).each do |key|
         experiment = ExperimentCatalog.find key_without_version(key)
         next unless experiment.nil? || experiment.has_winner? || experiment.start_time.nil?
+        experiment = ExperimentCatalog.find_or_initialize key_without_version(key)
+        experiment.load_from_redis
 
         deleted_keys = [key, Experiment.finished_key(key)]
-        score_names = ExperimentCatalog.find_or_initialize(key_without_version(key)).scores
+        score_names = experiment.scores
         score_names.each do |score_name|
           deleted_keys << Experiment.scored_key(key, score_name)
         end
@@ -43,10 +45,9 @@ module Split
     def active_experiments
       experiment_pairs = {}
       user.keys.each do |key|
-        Metric.possible_experiments(key_without_version(key)).each do |experiment|
-          unless experiment.has_winner?
-            experiment_pairs[key_without_version(key)] = user[key]
-          end
+        next unless (experiment = ExperimentCatalog.find(key_without_version(key)))
+        unless experiment.has_winner?
+          experiment_pairs[key_without_version(key)] = user[key]
         end
       end
       experiment_pairs

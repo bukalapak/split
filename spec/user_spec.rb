@@ -9,6 +9,13 @@ describe Split::User do
   let(:experiment) { Split::Experiment.new('link_color') }
 
   before(:each) do
+    Split.configure do |config|
+      config.experiments = {
+        link_color: {
+          alternatives: %w(blue red)
+        }
+      }
+    end
     @subject = described_class.new(context)
   end
 
@@ -45,6 +52,25 @@ describe Split::User do
       allow(experiment).to receive(:has_winner?).and_return(false)
       @subject.cleanup_old_experiments!
       expect(@subject.keys).to be_empty
+    end
+
+    context 'with experiments removed from configurations' do
+      before do
+        redis = ::Split.redis
+        redis.sadd(:experiments, 'removed_experiment')
+        redis.rpush('removed_experiment:scores', %w(score1 score2))
+      end
+      let(:user_keys) do
+        {
+          'removed_experiment' => 'alternative',
+          'removed_experiment:scored:score1' => true,
+          'removed_experiment:scored:score2' => true
+        }
+      end
+      it 'should remove experiment scored key' do
+        @subject.cleanup_old_experiments!
+        expect(@subject.keys).to be_empty
+      end
     end
 
     context 'with finished key' do

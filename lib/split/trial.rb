@@ -1,127 +1,139 @@
 # frozen_string_literal: true
 module Split
   class Trial
-    attr_accessor :experiment
-    attr_accessor :metadata
+    attr_reader :user
+    attr_reader :experiment
 
-    def initialize(attrs = {})
-      self.experiment = attrs.delete(:experiment)
-      self.alternative = attrs.delete(:alternative)
-      self.metadata = attrs.delete(:metadata)
-
-      @user = attrs.delete(:user)
-      @options = attrs
-
-      @alternative_choosen = false
+    def initialize(user, experiment, context = nil)
+      @user = user
+      @experiment = experiment
+      @context = context
     end
 
     def metadata
-      @metadata ||= experiment.metadata[alternative.name] if experiment.metadata
+      return nil unless alternative && @experiment.metadata
+      @experiment.metadata[alternative.name]
     end
 
     def alternative
-      @alternative ||= (@experiment.winner if @experiment.has_winner?)
+      return @alternative if defined?(@alternative)
+      self.alternative = @user[@experiment.key]
+      @alternative
     end
 
-    def alternative=(alternative)
-      @alternative =
-        if alternative.is_a?(Split::Alternative)
-          alternative
-        else
-          @experiment.alternatives.find { |a| a.name == alternative }
-        end
-    end
+    def choose!(override = nil)
+      # only cleanup every now and then
+      # lazy af method lul but is fine
+      @user.cleanup_old_experiments! if rand(100) > 95
+      cleanup_old_versions
 
-    def complete!(goals = [], context = nil)
-      return unless alternative
-      if Array(goals).empty?
-        alternative.increment_completion
-      else
-        Array(goals).each { |g| alternative.increment_completion(g) }
-      end
-
-      run_callback context, Split.configuration.on_trial_complete
-    end
-
-    def score!(score_name, score_value = 1)
-      return unless alternative
-      alternative.increment_score(score_name, score_value)
-    end
-
-    # Choose an alternative, add a participant, and save the alternative choice on the user. This
-    # method is guaranteed to only run once, and will skip the alternative choosing process if run
-    # a second time.
-    def choose!(context = nil)
-      @user.cleanup_old_experiments!
-      # Only run the process once
-      return alternative if @alternative_choosen
-
-      chosen_alternative = @user[@experiment.key]
-      if override_is_alternative?
-        self.alternative = @options[:override]
-        if should_store_alternative? && !chosen_alternative
-          alternative.increment_participation
-        end
-      elsif @options[:disabled] || Split.configuration.disabled?
+      store_alternative = false
+      if valid_alternative?(override)
+        store_alternative = true if Split.configuration.store_override && !alternative && !Split.configuration.disabled? && valid?
+        self.alternative = override
+      elsif Split.configuration.disabled? || !valid?
         self.alternative = @experiment.control
       elsif @experiment.has_winner?
         self.alternative = @experiment.winner
-      else
-        cleanup_old_versions
-
-        if exclude_user?
-          self.alternative = @experiment.control
-        else
-          value = chosen_alternative
-          if value
-            self.alternative = value
-          else
-            self.alternative = @experiment.next_alternative
-
-            # Increment the number of participants since we are actually choosing a new alternative
-            alternative.increment_participation
-
-            run_callback context, Split.configuration.on_trial_choose
-          end
-        end
+      elsif !alternative
+        store_alternative = true
+        self.alternative = @experiment.next_alternative
       end
 
-      if override_is_alternative?
-        if should_store_alternative? && !chosen_alternative
-          @user[@experiment.key] = alternative.name
-        end
-      elsif should_store_alternative?
+      if store_alternative
         @user[@experiment.key] = alternative.name
+        alternative.increment_participation
+        run_callback Split.configuration.on_trial_choose
       end
-      @alternative_choosen = true
-      run_callback context, Split.configuration.on_trial unless @options[:disabled] || Split.configuration.disabled?
+
+      run_callback Split.configuration.on_trial unless Split.configuration.disabled?
       alternative
+    end
+
+    def complete!(options = { goal: nil })
+      return if Split.configuration.disabled? || !valid?
+      return if options[:goal] && !@experiment.goals.include?(options[:goal].to_s)
+      return unless alternative && !@user[experiment.finished_key]
+
+      run_callback ::Split.configuration.on_trial_complete
+
+      alternative.increment_completion(options[:goal])
+      if options.key?(:reset)
+        if options[:reset]
+          reset!
+        else
+          @user[experiment.finished_key] = true
+        end
+      elsif experiment.resettable?
+        reset!
+      else
+        @user[experiment.finished_key] = true
+      end
+    end
+
+    def score!(score_name, score_value = 1)
+      return unless alternative && valid? && !@user[@experiment.scored_key(score_name)] && @experiment.scores.include?(score_name)
+      ::Split.redis.multi do
+        alternative.increment_score(score_name, score_value)
+        @user[@experiment.scored_key(score_name)] = true
+      end
+    end
+
+    def reset!
+      deleted_keys = [@experiment.key, @experiment.finished_key]
+      @experiment.scores.each do |score_name|
+        deleted_keys << @experiment.scored_key(score_name)
+      end
+      @user.delete(*deleted_keys)
+      @alternative = nil
     end
 
     private
 
-    def run_callback(context, callback_name)
-      context.send(callback_name, self) if callback_name && context.respond_to?(callback_name, true)
+    def alternative=(alternative)
+      @alternative =
+        case alternative
+        when String
+          experiment.alternatives.find { |alt| alt.name == alternative }
+        when ::Split::Alternative
+          alternative
+        end
     end
 
-    def override_is_alternative?
-      @experiment.alternatives.map(&:name).include?(@options[:override])
+    def run_callback(callback_name)
+      @context.send(callback_name, self) if callback_name && @context.respond_to?(callback_name, true)
     end
 
-    def should_store_alternative?
-      if @options[:override] || @options[:disabled]
-        Split.configuration.store_override
-      else
-        !exclude_user?
-      end
+    def valid_alternative?(override)
+      override = override.name if override.is_a?(::Split::Alternative)
+      experiment.alternatives.map(&:name).include?(override)
     end
 
     def cleanup_old_versions
-      @user.cleanup_old_versions!(@experiment) if @experiment.version > 0
+      @user.cleanup_old_versions!(@experiment) if @experiment.version.positive?
     end
 
-    def exclude_user?
-      @options[:exclude] || @experiment.start_time.nil? || @user.max_experiments_reached?(@experiment.key)
+    def valid?
+      !(user_excluded? || @experiment.start_time.nil? || @user.max_experiments_reached?(@experiment.key))
+    end
+
+    def user_excluded?
+      @context.instance_eval(&Split.configuration.ignore_filter) || user_is_bot? || user_ip_ignored?
+    end
+
+    def user_is_bot?
+      return false unless @context.respond_to?(:request, true)
+      @context.send(:request).user_agent =~ Split.configuration.robot_regex
+    end
+
+    def user_ip_ignored?
+      return false if Split.configuration.ignore_ip_addresses.empty? || !@context.respond_to?(:request, true)
+
+      user_ip = @context.send(:request).ip
+      Split.configuration.ignore_ip_addresses.each do |ip|
+        return true if user_ip == ip || (ip.class == Regexp && user_ip =~ ip)
+      end
+      false
     end
   end
 end

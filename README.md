@@ -639,31 +639,6 @@ or in views:
 <% end %>
 ```
 
-#### Metrics
-
-You might wish to track generic metrics, such as conversions, and use
-those to complete multiple different experiments without adding more to
-your code. You can use the configuration hash to do this, thanks to
-the `:metric` option.
-
-```ruby
-Split.configure do |config|
-  config.experiments = {
-    my_first_experiment: {
-      alternatives: ["a", "b"],
-      metric: :my_metric
-    }
-  }
-end
-```
-
-Your code may then track a completion using the metric instead of
-the experiment name:
-
-```ruby
-ab_finished(:my_metric)
-```
-
 #### Scores
 
 You can also track generic values alongside each alternatives. You can use the
@@ -722,44 +697,6 @@ web session:
 ```ruby
 Split::Helper.ab_score_alternative(:my_first_experiment, "alt_one", "score_one", 100)
 ```
-
-#### Goals
-
-You might wish to allow an experiment to have multiple, distinguishable goals.
-The API to define goals for an experiment is this:
-
-```ruby
-Split.configure do |config|
-  config.experiments = {
-    link_color: {
-      alternatives: ["red", "blue"],
-      goals: ["purchase", "refund"]
-    }
-  }
-end
-```
-
-To complete a goal conversion, you do it like:
-
-```ruby
-ab_finished(link_color: "purchase")
-```
-
-Note that if you pass additional options, that should be a separate hash:
-
-```ruby
-ab_finished({ link_color: "purchase" }, reset: false)
-```
-
-**NOTE:** This does not mean that a single experiment can complete more than one goal.
-
-Once you finish one of the goals, the test is considered to be completed, and finishing the other goal will no longer register. (Assuming the test runs with `reset: false`.)
-
-**Good Example**: Test if listing Plan A first result in more conversions to Plan A (goal: "plana_conversion") or Plan B (goal: "planb_conversion").
-
-**Bad Example**: Test if button color increases conversion rate through multiple steps of a funnel. THIS WILL NOT WORK.
-
-**Bad Example**: Test both how button color affects signup *and* how it affects login, at the same time. THIS WILL NOT WORK.
 
 ### DB failover solution
 
@@ -832,7 +769,7 @@ library. To configure Split to use `Redis::Namespace`, do the following:
 
 Split provides the Helper module to facilitate running experiments inside web sessions.
 
-Alternatively, you can access the underlying Metric, Trial, Experiment and Alternative objects to
+Alternatively, you can access the underlying Trial, Experiment and Alternative objects to
 conduct experiments that are not tied to a web session.
 
 ```ruby

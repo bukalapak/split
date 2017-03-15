@@ -8,7 +8,8 @@ module Split
     module Whiplash
       class << self
         def choose_alternative(experiment)
-          experiment[best_guess(experiment.alternatives)]
+          chosen_alternative_name = best_guess(experiment.alternatives)
+          experiment.alternatives.find { |alt| alt.name == chosen_alternative_name }
         end
 
         private

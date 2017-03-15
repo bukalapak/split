@@ -1,4 +1,6 @@
 # frozen_string_literal: true
+require 'logger'
+
 module Split
   class Configuration
     attr_accessor :bots
@@ -26,6 +28,8 @@ module Split
     attr_accessor :include_rails_helper
     attr_accessor :beta_probability_simulations
     attr_accessor :redis
+    attr_accessor :logger
+    attr_accessor :logger_proc
 
     attr_reader :experiments
 
@@ -100,10 +104,6 @@ module Split
     def experiments=(experiments)
       raise InvalidExperimentsFormatError, 'Experiments must be a Hash' unless experiments.respond_to?(:keys)
       @experiments = experiments
-      experiments.keys.each do |experiment_name|
-        Split::ExperimentCatalog.find_or_create(experiment_name)
-      end
-      @experiments
     end
 
     def disabled?
@@ -119,42 +119,35 @@ module Split
     def metrics
       return @metrics if defined?(@metrics)
       @metrics = {}
-      if experiments
-        experiments.each do |key, value|
-          metrics =
-            begin
-              value_for(value, :metric)
-            rescue
-              nil
-            end
-          Array(metrics).each do |metric_name|
-            if metric_name
-              @metrics[metric_name.to_sym] ||= []
-              @metrics[metric_name.to_sym] << Split::Experiment.new(key)
-            end
+      return @metrics unless experiments
+      experiments.each do |key, value|
+        metric =
+          begin
+            value_for(value, :metric)
+          rescue
+            nil
           end
-        end
+        next unless metric
+        @metrics[metric.to_sym] ||= []
+        @metrics[metric.to_sym] << Split::Experiment.new(key)
       end
       @metrics
     end
 
     def scores
-      return @scores if defined?(@scores)
       @scores = {}
-      if experiments
-        experiments.each do |experiment_name, experiment_data|
-          scores =
-            begin
-              value_for(experiment_data, :scores) || []
-            rescue
-              []
-            end
-          scores.each do |score_name|
-            if score_name
-              @scores[score_name] ||= []
-              @scores[score_name] << Split::ExperimentCatalog.find_or_create(experiment_name)
-            end
+      return @scores unless experiments
+      experiments.each do |experiment_name, experiment_data|
+        scores =
+          begin
+            value_for(experiment_data, :scores) || []
+          rescue
+            []
           end
+        scores.each do |score_name|
+          next unless score_name
+          @scores[score_name] ||= []
+          @scores[score_name] << Split::Experiment.new(experiment_name)
         end
       end
       @scores
@@ -231,7 +224,7 @@ module Split
 
     def initialize
       @ignore_ip_addresses = []
-      @ignore_filter = proc { |_request| is_robot? || is_ignored_ip_address? }
+      @ignore_filter = proc { false }
       @db_failover = false
       @db_failover_on_db_error = proc { |error| } # e.g. use Rails logger here
       @on_experiment_reset = proc { |experiment| }
@@ -246,8 +239,10 @@ module Split
       @persistence_cookie_length = 31_536_000 # One year from now
       @algorithm = Split::Algorithms::WeightedSample
       @include_rails_helper = true
-      @beta_probability_simulations = 10_000
+      @beta_probability_simulations = ENV['RACK_ENV'] == 'test' ? 1000 : 10_000 # just to speed up the test
       @redis = ENV.fetch(ENV.fetch('REDIS_PROVIDER', 'REDIS_URL'), 'redis://localhost:6379')
+      @logger = Logger.new(STDOUT)
+      @logger_proc = ->(logger, experiment_name, event) { logger.info("#{experiment_name}: #{event}") }
     end
 
     def redis_url=(value)

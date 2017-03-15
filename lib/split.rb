@@ -6,13 +6,9 @@
    experiment
    experiment_catalog
    extensions
-   goals_collection
    helper
-   metric
    persistence
-   redis_interface
    score
-   scores_collection
    trial
    user
    version
