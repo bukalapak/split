@@ -23,8 +23,7 @@ module Split
     end
 
     get '/experiments/:name' do
-      @experiment = Split::ExperimentCatalog.find(params[:name])
-      @experiment.load_from_redis unless ::Split.configuration.experiment_for(@experiment.name)
+      @experiment = load_experiment(params[:name])
       redirect url('/') unless @experiment
 
       erb :'experiments/show'
@@ -36,7 +35,7 @@ module Split
     end
 
     post '/experiment' do
-      @experiment = Split::ExperimentCatalog.find(params[:experiment])
+      @experiment = load_experiment(params[:experiment])
       @alternative = Split::Alternative.new(params[:alternative], params[:experiment])
       @experiment.winner = @alternative.name
 
@@ -45,7 +44,7 @@ module Split
     end
 
     post '/start' do
-      @experiment = Split::ExperimentCatalog.find(params[:experiment])
+      @experiment = load_experiment(params[:experiment])
       @experiment.start
 
       log_action(@experiment, 'start')
@@ -53,7 +52,7 @@ module Split
     end
 
     post '/reset' do
-      @experiment = Split::ExperimentCatalog.find(params[:experiment])
+      @experiment = load_experiment(params[:experiment])
       @experiment.reset
 
       log_action(@experiment, 'reset')
@@ -61,7 +60,7 @@ module Split
     end
 
     post '/reopen' do
-      @experiment = Split::ExperimentCatalog.find(params[:experiment])
+      @experiment = load_experiment(params[:experiment])
       @experiment.delete_winner
 
       log_action(@experiment, 'reopen')
@@ -69,7 +68,7 @@ module Split
     end
 
     delete '/experiment' do
-      @experiment = Split::ExperimentCatalog.find(params[:experiment])
+      @experiment = load_experiment(params[:experiment])
       @experiment.delete
 
       log_action(@experiment, 'delete')
@@ -77,6 +76,12 @@ module Split
     end
 
     private
+
+    def load_experiment(experiment_name)
+      experiment = ::Split::ExperimentCatalog.find(experiment_name)
+      experiment.load_from_redis unless ::Split.configuration.experiment_for(experiment_name)
+      experiment
+    end
 
     def log_action(experiment, event)
       Split.configuration.logger_proc.call(logger, experiment.name, event)

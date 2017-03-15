@@ -104,10 +104,6 @@ module Split
     def experiments=(experiments)
       raise InvalidExperimentsFormatError, 'Experiments must be a Hash' unless experiments.respond_to?(:keys)
       @experiments = experiments
-      # experiments.keys.each do |experiment_name|
-      #   Split::ExperimentCatalog.find_or_create(experiment_name)
-      # end
-      @experiments
     end
 
     def disabled?
