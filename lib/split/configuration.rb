@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'logger'
 
 module Split
@@ -202,19 +203,19 @@ module Split
       num_without_probability = alternatives.length - num_with_probability
       unassigned_probability = ((100.0 - given_probability) / num_without_probability / 100.0)
 
-      if num_with_probability.nonzero?
-        alternatives = alternatives.map do |v|
-          if (name = value_for(v, :name)) && (percent = value_for(v, :percent))
-            { name => percent / 100.0 }
-          elsif (name = value_for(v, :name))
-            { name => unassigned_probability }
-          else
-            { v => unassigned_probability }
-          end
-        end
-      else
-        alternatives = alternatives.dup
-      end
+      alternatives = if num_with_probability.nonzero?
+                       alternatives.map do |v|
+                         if (name = value_for(v, :name)) && (percent = value_for(v, :percent))
+                           { name => percent / 100.0 }
+                         elsif (name = value_for(v, :name))
+                           { name => unassigned_probability }
+                         else
+                           { v => unassigned_probability }
+                         end
+                       end
+                     else
+                       alternatives.dup
+                     end
       [alternatives.shift, alternatives]
     end
 

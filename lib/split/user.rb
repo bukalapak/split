@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Split
   class User
     extend Forwardable

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Split::ExperimentCatalog do
@@ -7,7 +8,7 @@ describe Split::ExperimentCatalog do
   before(:example) do
     Split.configuration.experiments = {
       xyz: {
-        alternatives: %w(1 2 3)
+        alternatives: %w[1 2 3]
       }
     }
   end

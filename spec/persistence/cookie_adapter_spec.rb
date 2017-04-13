@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Split::Persistence::CookieAdapter do
@@ -17,7 +18,7 @@ describe Split::Persistence::CookieAdapter do
       subject['key_one'] = 'ein'
       subject['key_two'] = 'zwei'
       subject['key_three'] = 'drei'
-      expect(subject.multi_get('key_one', 'key_two', 'key_three')).to eq(%w(ein zwei drei))
+      expect(subject.multi_get('key_one', 'key_two', 'key_three')).to eq(%w[ein zwei drei])
     end
   end
 
@@ -33,7 +34,7 @@ describe Split::Persistence::CookieAdapter do
     it "should return an array of the session's stored keys" do
       subject['my_key'] = 'my_value'
       subject['my_second_key'] = 'my_second_value'
-      expect(subject.keys).to match(%w(my_key my_second_key))
+      expect(subject.keys).to match(%w[my_key my_second_key])
     end
   end
 

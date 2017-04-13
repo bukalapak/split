@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'split/score'
 
@@ -6,12 +7,12 @@ describe Split::Score do
   before(:each) do
     Split.configuration.experiments = {
       experiment1: {
-        alternatives: %w(alt1 alt2),
-        scores: %w(score1 score2)
+        alternatives: %w[alt1 alt2],
+        scores: %w[score1 score2]
       },
       experiment2: {
-        alternatives: %w(alt1 alt2),
-        scores: %w(score1 score3)
+        alternatives: %w[alt1 alt2],
+        scores: %w[score1 score3]
       }
     }
     Split::ExperimentCatalog.find_or_create(:experiment1)

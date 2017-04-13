@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 module Split
   MAJOR   = 2
   MINOR   = 2

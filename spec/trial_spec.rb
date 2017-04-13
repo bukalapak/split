@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'split/trial'
 
@@ -7,10 +8,10 @@ describe Split::Trial do
     Split.configure do |config|
       config.experiments = {
         basket_text: {
-          alternatives: %w(basket cart),
-          metadata: Hash[%w(basket cart).map { |k| [k, "Metadata for #{k}"] }],
-          goals: %w(first second),
-          scores: %w(checkout qty)
+          alternatives: %w[basket cart],
+          metadata: Hash[%w[basket cart].map { |k| [k, "Metadata for #{k}"] }],
+          goals: %w[first second],
+          scores: %w[checkout qty]
         }
       }
     end
@@ -18,7 +19,7 @@ describe Split::Trial do
 
   let(:context) { double(on_trial_callback: 'test callback', request: double(user_agent: '007', ip: 'man'), on_trial_complete_callback: 'test callback') }
   let(:user) { mock_user }
-  let(:alternatives) { %w(basket cart) }
+  let(:alternatives) { %w[basket cart] }
   let(:experiment) { Split::Experiment.new('basket_text').save }
   let(:trial) { Split::Trial.new(user, experiment, context) }
 

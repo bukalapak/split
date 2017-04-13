@@ -1,5 +1,6 @@
 # frozen_string_literal: true
-%w(algorithms
+
+%w[algorithms
    alternative
    configuration
    exceptions
@@ -12,7 +13,7 @@
    trial
    user
    version
-   zscore).each do |f|
+   zscore].each do |f|
   require "split/#{f}"
 end
 

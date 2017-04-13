@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'split/experiment'
 require 'split/algorithms'
@@ -10,8 +11,8 @@ describe Split::Experiment do
   before do
     Split.configuration.experiments = {
       link_color: {
-        alternatives: %w(blue red green),
-        goals: %w(checkout),
+        alternatives: %w[blue red green],
+        goals: %w[checkout],
         resettable: false,
         metadata:
         {
@@ -20,10 +21,10 @@ describe Split::Experiment do
           green: 'bulbasaur'
         },
         algorithm: '::Split::Algorithms::Whiplash',
-        scores: %w(score1 score2 score3)
+        scores: %w[score1 score2 score3]
       },
       basket_text: {
-        alternatives: %w(Basket Cart)
+        alternatives: %w[Basket Cart]
       }
     }
   end
@@ -55,7 +56,7 @@ describe Split::Experiment do
     end
 
     it 'should have alternatives with correct names' do
-      expect(experiment.alternatives.collect(&:name)).to eq(%w(Basket Cart))
+      expect(experiment.alternatives.collect(&:name)).to eq(%w[Basket Cart])
     end
 
     it 'should be resettable by default' do
@@ -135,8 +136,8 @@ describe Split::Experiment do
       Split.configure do |config|
         config.experiments = {
           numbers: {
-            alternatives: %w(one two three),
-            goals: %w(infinite nan),
+            alternatives: %w[one two three],
+            goals: %w[infinite nan],
             metadata: {
               one: 'ein',
               two: 'zwei',
@@ -170,7 +171,7 @@ describe Split::Experiment do
       before { subject.load_from_configuration }
 
       it 'should load the alternatives' do
-        expect(subject.alternatives.map(&:name).sort).to eq(%w(blue green red))
+        expect(subject.alternatives.map(&:name).sort).to eq(%w[blue green red])
       end
 
       it 'should load the goals' do
@@ -194,7 +195,7 @@ describe Split::Experiment do
       end
 
       it 'should load the scores' do
-        expect(subject.scores).to eq(%w(score1 score2 score3))
+        expect(subject.scores).to eq(%w[score1 score2 score3])
       end
     end
 
@@ -217,7 +218,7 @@ describe Split::Experiment do
 
       it 'should validate the goals' do
         expect { subject.validate! }.not_to raise_error
-        allow(subject).to receive(:goals).and_return([:goal1, :goal2])
+        allow(subject).to receive(:goals).and_return(%i[goal1 goal2])
         expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
       end
 
@@ -235,7 +236,7 @@ describe Split::Experiment do
 
       it 'should validate the scores' do
         expect { subject.validate! }.not_to raise_error
-        allow(subject).to receive(:scores).and_return([:score1, :score2])
+        allow(subject).to receive(:scores).and_return(%i[score1 score2])
         expect { subject.validate! }.to raise_error(::Split::InvalidExperimentsFormatError)
       end
     end
@@ -331,16 +332,16 @@ describe Split::Experiment do
     subject { described_class.new('sample_experiment') }
     before do
       redis.sadd(:experiments, 'sample_experiment')
-      redis.rpush('sample_experiment', %w(alt1 alt2))
-      redis.rpush('sample_experiment:goals', %w(goal1 goal2))
-      redis.rpush('sample_experiment:scores', %w(score1 score2))
+      redis.rpush('sample_experiment', %w[alt1 alt2])
+      redis.rpush('sample_experiment:goals', %w[goal1 goal2])
+      redis.rpush('sample_experiment:scores', %w[score1 score2])
     end
 
     it 'should load experiment configuration from redis even if the experiment not defined in configuration' do
       subject.load_from_redis
-      expect(subject.alternatives.map(&:name)).to eq(%w(alt1 alt2))
-      expect(subject.goals).to eq(%w(goal1 goal2))
-      expect(subject.scores).to eq(%w(score1 score2))
+      expect(subject.alternatives.map(&:name)).to eq(%w[alt1 alt2])
+      expect(subject.goals).to eq(%w[goal1 goal2])
+      expect(subject.scores).to eq(%w[score1 score2])
     end
   end
 
@@ -426,7 +427,7 @@ describe Split::Experiment do
     before(:example) do
       Split.configuration.experiments = {
         link_color: {
-          alternatives: %w(blue red green)
+          alternatives: %w[blue red green]
         }
       }
     end
@@ -450,7 +451,7 @@ describe Split::Experiment do
       before(:example) do
         Split.configuration.experiments = {
           link_color: {
-            alternatives: %w(blue red green)
+            alternatives: %w[blue red green]
           }
         }
       end
@@ -485,14 +486,14 @@ describe Split::Experiment do
     before(:example) do
       Split.configuration.experiments = {
         mathematicians: {
-          alternatives: %w(bernoulli poisson lagrange)
+          alternatives: %w[bernoulli poisson lagrange]
         },
         scientists: {
-          alternatives: %w(einstein bohr)
+          alternatives: %w[einstein bohr]
         },
         link_color3: {
-          alternatives: %w(blue red green),
-          goals: %w(purchase refund)
+          alternatives: %w[blue red green],
+          goals: %w[purchase refund]
         }
       }
     end

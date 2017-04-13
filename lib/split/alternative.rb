@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'split/zscore'
 
 # TODO: - take out require and implement using file paths?

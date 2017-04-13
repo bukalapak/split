@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Split::Persistence::DualAdapter do
@@ -52,7 +53,7 @@ describe Split::Persistence::DualAdapter do
   context 'when logged in' do
     subject do
       described_class.with_config(
-        logged_in: -> (_context) { true },
+        logged_in: ->(_context) { true },
         logged_in_adapter: selected_adapter,
         logged_out_adapter: not_selected_adapter
       ).new(context)
@@ -64,7 +65,7 @@ describe Split::Persistence::DualAdapter do
   context 'when not logged in' do
     subject do
       described_class.with_config(
-        logged_in: -> (_context) { false },
+        logged_in: ->(_context) { false },
         logged_in_adapter: not_selected_adapter,
         logged_out_adapter: selected_adapter
       ).new(context)

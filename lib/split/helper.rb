@@ -1,7 +1,8 @@
 # frozen_string_literal: true
+
 module Split
   module Helper
-    OVERRIDE_PARAM_NAME = 'ab_test'.freeze
+    OVERRIDE_PARAM_NAME = 'ab_test'
 
     module_function
 

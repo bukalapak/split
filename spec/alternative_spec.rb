@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'split/alternative'
 
@@ -18,9 +19,9 @@ describe Split::Alternative do
   let!(:experiment) do
     Split.configuration.experiments = {
       basket_text: {
-        goals: %w(purchase refund),
-        alternatives: %w(Basket Cart),
-        scores: %w(score1 score2)
+        goals: %w[purchase refund],
+        alternatives: %w[Basket Cart],
+        scores: %w[score1 score2]
       }
     }
     Split::ExperimentCatalog.find_or_create('basket_text')
@@ -32,7 +33,7 @@ describe Split::Alternative do
   let(:score2) { 'score2' }
 
   it 'should have goals' do
-    expect(alternative.goals).to eq(%w(purchase refund))
+    expect(alternative.goals).to eq(%w[purchase refund])
   end
 
   describe '#scores' do
@@ -44,7 +45,7 @@ describe Split::Alternative do
     it 'should return empty array when no scores are defined' do
       Split.configuration.experiments = {
         other_experiment: {
-          alternatives: %w(sample alternatives)
+          alternatives: %w[sample alternatives]
         }
       }
       expect(alternative3.scores).to be_empty

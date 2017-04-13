@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 require 'rack/test'
 require 'split/dashboard'
@@ -21,7 +22,7 @@ describe Split::Dashboard do
           { name: 'blue', percent: 50 },
           { name: 'red', percent: 50 }
         ],
-        goals: %w(goal_1 goal_2)
+        goals: %w[goal_1 goal_2]
       }
     }
   end

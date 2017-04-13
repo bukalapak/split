@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Split::Algorithms::Whiplash do
@@ -20,7 +21,7 @@ describe Split::Algorithms::Whiplash do
 
   it 'should return one of the results' do
     experiment = Split::ExperimentCatalog.find_or_create('link_color')
-    expect(%w(red blue)).to include Split::Algorithms::Whiplash.choose_alternative(experiment).name
+    expect(%w[red blue]).to include Split::Algorithms::Whiplash.choose_alternative(experiment).name
   end
 
   it 'should guess floats' do

@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require 'spec_helper'
 
 describe Split::Configuration do
@@ -31,7 +32,7 @@ describe Split::Configuration do
   end
 
   it 'should provide a default pattern for robots' do
-    %w(Baidu Gigabot Googlebot libwww-perl lwp-trivial msnbot SiteUptime Slurp WordPress ZIBB ZyBorg YandexBot AdsBot-Google Wget curl bitlybot facebookexternalhit spider).each do |robot|
+    %w[Baidu Gigabot Googlebot libwww-perl lwp-trivial msnbot SiteUptime Slurp WordPress ZIBB ZyBorg YandexBot AdsBot-Google Wget curl bitlybot facebookexternalhit spider].each do |robot|
       expect(@config.robot_regex).to match(robot)
     end
 
@@ -57,7 +58,7 @@ describe Split::Configuration do
   end
 
   it 'should load a metric' do
-    @config.experiments = { my_experiment: { alternatives: %w(control_opt other_opt), metric: :my_metric } }
+    @config.experiments = { my_experiment: { alternatives: %w[control_opt other_opt], metric: :my_metric } }
 
     expect(@config.metrics).not_to be_nil
     expect(@config.metrics.keys).to eq([:my_metric])
@@ -67,7 +68,7 @@ describe Split::Configuration do
     it 'should load the scores' do
       @config.experiments = {
         my_experiment: {
-          alternatives: %w(alt1 alt2),
+          alternatives: %w[alt1 alt2],
           scores: ['score1']
         }
       }
@@ -81,7 +82,7 @@ describe Split::Configuration do
     it 'should return empty hash when no scores are defined' do
       @config.experiments = {
         other_experiment: {
-          alternatives: %w(alt1 alt2)
+          alternatives: %w[alt1 alt2]
         }
       }
       expect(@config.scores).to be_empty
@@ -91,7 +92,7 @@ describe Split::Configuration do
       it 'should reflect the changes the experiment mapped by a score' do
         @config.experiments = {
           my_experiment: {
-            alternatives: %w(alt1 alt2),
+            alternatives: %w[alt1 alt2],
             scores: ['score1']
           }
         }
@@ -105,7 +106,7 @@ describe Split::Configuration do
   end
 
   it 'should allow loading of experiment using experment_for' do
-    @config.experiments = { my_experiment: { alternatives: %w(control_opt other_opt), metric: :my_metric } }
+    @config.experiments = { my_experiment: { alternatives: %w[control_opt other_opt], metric: :my_metric } }
     default_options = @config.class::DEFAULT_OPTIONS
     expect(@config.experiment_for(:my_experiment)).to eq(default_options.merge(alternatives: ['control_opt', ['other_opt']]))
   end
@@ -122,7 +123,7 @@ describe Split::Configuration do
                 - Alt Two
               resettable: false
             eos
-          @config.experiments = YAML.load(experiments_yaml)
+          @config.experiments = YAML.safe_load(experiments_yaml)
         end
 
         it 'should normalize experiments' do
@@ -151,7 +152,7 @@ describe Split::Configuration do
                   text: 'Alternative Two'
               resettable: false
             eos
-          @config.experiments = YAML.load(experiments_yaml)
+          @config.experiments = YAML.safe_load(experiments_yaml)
         end
 
         it 'should have metadata on the experiment' do
@@ -185,7 +186,7 @@ describe Split::Configuration do
                 - score1
                 - score3
             eos
-          @config.experiments = YAML.load(experiments_yaml)
+          @config.experiments = YAML.safe_load(experiments_yaml)
         end
 
         it 'should normalize experiments' do
@@ -200,11 +201,11 @@ describe Split::Configuration do
                   { 'Alt Two' => 0.23 }
                 ]
               ],
-              scores: %w(score1 score2)
+              scores: %w[score1 score2]
             ),
             another_experiment: default_options.merge(
               alternatives: ['a', ['b']],
-              scores: %w(score1 score3)
+              scores: %w[score1 score3]
             )
           )
         end
@@ -218,7 +219,7 @@ describe Split::Configuration do
           exp1 = Split::ExperimentCatalog.find_or_create(:my_experiment)
           exp2 = Split::ExperimentCatalog.find_or_create(:another_experiment)
           expect(@config.scores).not_to be_nil
-          expect(@config.scores.keys).to eq(%w(score1 score2 score3))
+          expect(@config.scores.keys).to eq(%w[score1 score2 score3])
           expect(@config.scores['score1'].count).to eq 2
           expect(@config.scores['score1']).to include(exp1, exp2)
           expect(@config.scores['score2'].count).to eq 1
@@ -232,15 +233,15 @@ describe Split::Configuration do
     context 'as symbols' do
       context 'with valid YAML' do
         before do
-          experiments_yaml = <<-eos
-            :my_experiment:
-              :alternatives:
+          experiments_yaml = <<~eos
+            my_experiment:
+              alternatives:
                 - Control Opt
                 - Alt One
                 - Alt Two
-              :resettable: false
+              resettable: false
             eos
-          @config.experiments = YAML.load(experiments_yaml)
+          @config.experiments = YAML.safe_load(experiments_yaml)
         end
 
         it 'should normalize experiments' do
@@ -250,7 +251,7 @@ describe Split::Configuration do
       end
 
       context 'with invalid YAML' do
-        let(:yaml) { YAML.load(input) }
+        let(:yaml) { YAML.safe_load(input) }
 
         context 'with an empty string' do
           let(:input) { '' }
