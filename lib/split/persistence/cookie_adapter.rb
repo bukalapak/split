@@ -22,6 +22,12 @@ module Split
         set_cookie(hash.merge(key => value))
       end
 
+      # TODO: do in atomic fashion like redis' setnx
+      # (or another way to handle race condition)
+      def setnx(key, value)
+        self[key] = value unless self[key]
+      end
+
       def delete(*keyss)
         set_cookie(
           hash.tap do |h|

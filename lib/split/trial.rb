@@ -54,22 +54,17 @@ module Split
     def complete!(options = { goal: nil })
       return if Split.configuration.disabled? || !valid?
       return if options[:goal] && !@experiment.goals.include?(options[:goal].to_s)
-      return unless alternative && !@user[experiment.finished_key]
+      return unless alternative
 
-      run_callback ::Split.configuration.on_trial_complete
+      should_reset = options[:reset] || !options.key?(:reset) && experiment.resettable?
+      alr_finished = !@user.setnx(experiment.finished_key, true)
+      return if alr_finished && !should_reset
 
-      alternative.increment_completion(options[:goal])
-      if options.key?(:reset)
-        if options[:reset]
-          reset!
-        else
-          @user[experiment.finished_key] = true
-        end
-      elsif experiment.resettable?
-        reset!
-      else
-        @user[experiment.finished_key] = true
+      unless alr_finished
+        run_callback ::Split.configuration.on_trial_complete
+        alternative.increment_completion(options[:goal])
       end
+      reset! if should_reset
     end
 
     def score!(score_name, score_value = 1)

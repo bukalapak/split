@@ -265,6 +265,17 @@ describe Split::Trial do
           trial.complete!(reset: reset)
           expect(user.keys.select { |key| key =~ /^#{experiment.key}/ }).to be_empty
         end
+
+        context 'when the participant already flagged as finished' do
+          before { trial.complete!(reset: false) }
+          it 'should reset without incrementing alterantive\'s completed count' do
+            alt = trial.alternative
+            prev_count = alt.completed_count
+            trial.complete!(reset: reset)
+            expect(user.keys.select { |key| key =~ /^#{experiment.key}/ }).to be_empty
+            expect(alt.completed_count).to eq(prev_count)
+          end
+        end
       end
 
       context 'false' do

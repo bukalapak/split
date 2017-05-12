@@ -4,7 +4,7 @@ module Split
   module Persistence
     class DualAdapter
       extend Forwardable
-      def_delegators :@adapter, :keys, :[], :multi_get, :[]=, :delete
+      def_delegators :@adapter, :keys, :[], :multi_get, :[]=, :delete, :setnx
 
       def initialize(context)
         unless (logged_in = self.class.config[:logged_in])

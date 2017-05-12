@@ -3,7 +3,7 @@
 module Split
   class User
     extend Forwardable
-    def_delegators :@user, :keys, :[], :multi_get, :[]=, :delete
+    def_delegators :@user, :keys, :[], :multi_get, :[]=, :delete, :setnx
     attr_reader :user
 
     def initialize(context, adapter = nil)

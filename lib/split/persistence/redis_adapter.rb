@@ -32,12 +32,22 @@ module Split
       end
 
       def []=(field, value)
+        expire_seconds = self.class.config[:expire_seconds]
         Split.redis.multi do
           Split.redis.hset(redis_key, field, value)
-          expire_seconds = self.class.config[:expire_seconds]
           Split.redis.expire(redis_key, expire_seconds) if expire_seconds
         end
         redis_data[field.to_s] = value
+      end
+
+      def setnx(field, value)
+        expire_seconds = self.class.config[:expire_seconds]
+        ret = Split.redis.multi do
+          Split.redis.hsetnx(redis_key, field, value)
+          Split.redis.expire(redis_key, expire_seconds) if expire_seconds
+        end
+        redis_data[field.to_s] = value if ret[0]
+        ret[0]
       end
 
       def delete(*fields)
