@@ -85,11 +85,7 @@ module Split
     end
 
     def log_action(experiment, event)
-      Split.configuration.logger_proc.call(logger, experiment.name, event)
-    end
-
-    def logger
-      Split.configuration.logger
+      ::Split.log(experiment.name, event)
     end
   end
 end

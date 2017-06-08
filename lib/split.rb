@@ -61,6 +61,11 @@ module Split
     self.configuration ||= Configuration.new
     yield(configuration)
   end
+
+  def log(experiment_name, event)
+    conf = self.configuration
+    conf.logger_proc.call(conf.logger, experiment_name, event)
+  end
 end
 
 Split.configure {}
