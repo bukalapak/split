@@ -172,6 +172,22 @@ describe Split::Helper do
       ab_test('link_color')
     end
 
+    it 'SPLIT_DISABLE query parameter should also force the alternative (uses control)' do
+      @params = {'SPLIT_DISABLE' => 'true'}
+      alternative = ab_test('link_color')
+      expect(alternative).to eq('blue')
+      alternative = ab_test('link_color2')
+      expect(alternative).to eq('blue')
+      alternative = ab_test('button_size')
+      expect(alternative).to eq('small')
+    end
+
+    it 'should not store the split when Split generically disabled' do
+      @params = {'SPLIT_DISABLE' => 'true'}
+      expect(ab_user).not_to receive(:[]=)
+      ab_test('link_color')
+    end
+
     context 'when store_override is set' do
       before { Split.configuration.store_override = true }
 

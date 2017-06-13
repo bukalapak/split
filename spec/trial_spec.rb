@@ -17,7 +17,14 @@ describe Split::Trial do
     end
   end
 
-  let(:context) { double(on_trial_callback: 'test callback', request: double(user_agent: '007', ip: 'man'), on_trial_complete_callback: 'test callback') }
+  let(:context) do
+    double(
+      on_trial_callback: 'test callback',
+      request: double(user_agent: '007', ip: 'man'),
+      on_trial_complete_callback: 'test callback',
+      split_generically_disabled?: false
+    )
+  end
   let(:user) { mock_user }
   let(:alternatives) { %w[basket cart] }
   let(:experiment) { Split::Experiment.new('basket_text').save }

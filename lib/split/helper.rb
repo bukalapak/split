@@ -66,6 +66,7 @@ module Split
 
           if Split.configuration.db_failover_allow_parameter_override
             alternative = override_alternative(experiment_name) if override_present?(experiment_name)
+            alternative = control_variable(experiment.control) if split_generically_disabled?
           end
         ensure
           alternative ||= control_variable(control || experiment.control)
@@ -229,6 +230,10 @@ module Split
 
     def override_alternative(experiment_name)
       defined?(params) && params[OVERRIDE_PARAM_NAME] && params[OVERRIDE_PARAM_NAME][experiment_name]
+    end
+
+    def split_generically_disabled?
+      defined?(params) && params['SPLIT_DISABLE']
     end
 
     def ab_user

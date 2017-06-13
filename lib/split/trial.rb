@@ -30,9 +30,9 @@ module Split
 
       store_alternative = false
       if valid_alternative?(override)
-        store_alternative = true if Split.configuration.store_override && !alternative && !Split.configuration.disabled? && valid?
+        store_alternative = true if Split.configuration.store_override && !alternative && !test_disabled?
         self.alternative = override
-      elsif Split.configuration.disabled? || !valid?
+      elsif test_disabled? || !valid?
         self.alternative = @experiment.control
       elsif @experiment.has_winner?
         self.alternative = @experiment.winner
@@ -47,12 +47,12 @@ module Split
         run_callback Split.configuration.on_trial_choose
       end
 
-      run_callback Split.configuration.on_trial unless Split.configuration.disabled?
+      run_callback Split.configuration.on_trial unless test_disabled?
       alternative
     end
 
     def complete!(options = { goal: nil })
-      return if Split.configuration.disabled? || !valid?
+      return if test_disabled? || !valid?
       return if options[:goal] && !@experiment.goals.include?(options[:goal].to_s)
       return unless alternative
 
@@ -68,7 +68,8 @@ module Split
     end
 
     def score!(score_name, score_value = 1)
-      return unless alternative && valid? && !@user[@experiment.scored_key(score_name)] && @experiment.scores.include?(score_name)
+      return if test_disabled? || !valid?
+      return unless alternative && !@user[@experiment.scored_key(score_name)] && @experiment.scores.include?(score_name)
       ::Split.redis.multi do
         alternative.increment_score(score_name, score_value)
         @user[@experiment.scored_key(score_name)] = true
@@ -94,6 +95,11 @@ module Split
         when ::Split::Alternative
           alternative
         end
+    end
+
+    def test_disabled?
+      generically_disabled = @context.respond_to?(:split_generically_disabled?, true) && @context.send(:split_generically_disabled?)
+      Split.configuration.disabled? || generically_disabled
     end
 
     def run_callback(callback_name)
