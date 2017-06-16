@@ -198,7 +198,7 @@ As per this [blog post](http://www.evanmiller.org/how-not-to-run-an-ab-test.html
 
 [Here](http://www.evanmiller.org/ab-testing/sample-size.html) is a sample size calculator for your convenience.
 
-The second option uses simulations from a beta distribution to determine the probability that the given alternative is the winner compared to all other alternatives. You can view these probabilities by clicking on the drop-down menu labeled "Confidence." This option should be used when the experiment has more than just 1 control and 1 alternative. It can also be used for a simple, 2-alternative A/B test.
+The second option uses simulations from a beta distribution to determine the probability that the given alternative is the winner compared to all other alternatives. This option should be used when the experiment has more than just 1 control and 1 alternative. It can also be used for a simple, 2-alternative A/B test.
 
 
 ## Extras
