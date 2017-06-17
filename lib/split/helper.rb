@@ -30,6 +30,8 @@ module Split
           define_singleton_method(:current_user) do
             original_method.call
           end
+        elsif defined?(current_user)
+          instance_eval { undef :current_user }
         end
       end
     end
@@ -82,8 +84,8 @@ module Split
     end
 
     def ab_finished(metric_descriptor, options = { user: nil })
-      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
+        return if exclude_visitor? || Split.configuration.disabled?
         begin
           experiment_name, goal = normalize_metric(metric_descriptor)
           experiment = ::Split::Experiment.new(experiment_name)
@@ -107,8 +109,8 @@ module Split
     end
 
     def ab_test_result(experiment_name, options = { user: nil })
-      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
+        return if exclude_visitor? || Split.configuration.disabled?
         begin
           experiment = ExperimentCatalog.find(experiment_name)
           return nil unless experiment
@@ -129,8 +131,8 @@ module Split
     end
 
     def ab_score(score_name, score_value = 1, options = { user: nil })
-      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
+        return if exclude_visitor? || Split.configuration.disabled?
         begin
           score_name = score_name.to_s
           trials = unscored_user_experiments(score_name).map do |experiment|
@@ -158,8 +160,8 @@ module Split
     end
 
     def ab_add_delayed_score(score_name, label, score_value = 1, ttl = 60 * 60 * 24, options = { user: nil })
-      return if exclude_visitor? || Split.configuration.disabled?
       with_user(options[:user]) do
+        return if exclude_visitor? || Split.configuration.disabled?
         begin
           score_name = score_name.to_s
           trials = unscored_user_experiments(score_name).map do |experiment|

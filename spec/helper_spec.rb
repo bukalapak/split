@@ -48,6 +48,14 @@ describe Split::Helper do
       expect(current_user.id).to eq(1)
     end
 
+    it 'should undef the current_user method when initially there should be none' do
+      instance_eval { undef :current_user }
+      with_user(given_user) do
+        expect(current_user.id).to eq(2)
+      end
+      expect { current_user }.to raise_error(NameError)
+    end
+
     it 'should temporarily use redis adapter as current user persistence scheme' do
       expect(ab_user.user.class.name).to eq('Split::Persistence::SessionAdapter')
       with_user(given_user) do
