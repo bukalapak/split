@@ -80,6 +80,9 @@ describe Split::Trial do
 
     context 'with override' do
       let(:override) { 'cart' }
+      before do
+        Split.configuration.store_override = true
+      end
 
       it_behaves_like 'a trial with callbacks'
 
@@ -108,6 +111,17 @@ describe Split::Trial do
         it 'falls back on next_alternative' do
           expect(experiment).to receive(:next_alternative).and_call_original
           expect_alternative(trial, alternatives)
+        end
+      end
+
+      context 'when the user is in ignore filter' do
+        before do
+          Split.configuration.ignore_filter = proc { true }
+        end
+
+        it 'should not save chosen alternative' do
+          trial.choose!(alternatives.sample)
+          expect(trial.user[experiment.key]).to be_nil
         end
       end
     end

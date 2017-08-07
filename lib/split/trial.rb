@@ -30,7 +30,7 @@ module Split
 
       store_alternative = false
       if valid_alternative?(override)
-        store_alternative = true if Split.configuration.store_override && !alternative && !test_disabled?
+        store_alternative = true if Split.configuration.store_override && !alternative && !test_disabled? && valid?
         self.alternative = override
       elsif test_disabled? || !valid?
         self.alternative = @experiment.control
