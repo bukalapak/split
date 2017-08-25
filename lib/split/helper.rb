@@ -7,15 +7,11 @@ module Split
     module_function
 
     def with_user(user)
-      original_ab_user = @ab_user
-      original_method = defined?(current_user) && method(:current_user)
       return yield unless user
+      original_ab_user = @ab_user
       begin
-        define_singleton_method(:current_user) do
-          user
-        end
         redis_adapter = Split::Persistence::RedisAdapter.with_config(
-          lookup_by: ->(context) { context.send(:current_user).try(:id) },
+          lookup_by: ->(context) { user&.id },
           expire_seconds: 2_592_000
         ).new(self)
         @ab_user = User.new(self, redis_adapter)
@@ -26,13 +22,6 @@ module Split
         Split.configuration.db_failover_on_db_error.call(e)
       ensure
         @ab_user = original_ab_user
-        if original_method
-          define_singleton_method(:current_user) do
-            original_method.call
-          end
-        elsif defined?(current_user)
-          instance_eval { undef :current_user }
-        end
       end
     end
 

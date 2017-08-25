@@ -31,29 +31,10 @@ describe Split::Helper do
   let(:experiment) { Split::ExperimentCatalog.find_or_create('link_color') }
 
   describe '.with_user' do
-    let(:original_user) { double('original_user', id: 1) }
     let(:given_user) { double('given_user', id: 2) }
 
     before(:example) do
-      allow(original_user).to receive(:try).with(Symbol) { |method_name| original_user.send(method_name) }
       allow(given_user).to receive(:try).with(Symbol) { |method_name| given_user.send(method_name) }
-      define_singleton_method(:current_user) { original_user }
-    end
-
-    it 'should temporarily replace current_user with given user' do
-      expect(current_user.id).to eq(1)
-      with_user(given_user) do
-        expect(current_user.id).to eq(2)
-      end
-      expect(current_user.id).to eq(1)
-    end
-
-    it 'should undef the current_user method when initially there should be none' do
-      instance_eval { undef :current_user }
-      with_user(given_user) do
-        expect(current_user.id).to eq(2)
-      end
-      expect { current_user }.to raise_error(NameError)
     end
 
     it 'should temporarily use redis adapter as current user persistence scheme' do
