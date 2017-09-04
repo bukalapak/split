@@ -117,24 +117,6 @@ module Split
       normalized_experiments[name.to_sym]
     end
 
-    def metrics
-      return @metrics if defined?(@metrics)
-      @metrics = {}
-      return @metrics unless experiments
-      experiments.each do |key, value|
-        metric =
-          begin
-            value_for(value, :metric)
-          rescue
-            nil
-          end
-        next unless metric
-        @metrics[metric.to_sym] ||= []
-        @metrics[metric.to_sym] << Split::Experiment.new(key)
-      end
-      @metrics
-    end
-
     def scores
       @scores = {}
       return @scores unless experiments

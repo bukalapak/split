@@ -27,25 +27,22 @@ module Split
       end
     end
 
-    def ab_test(experiment_name, control = nil, *_alternatives, user: nil)
+    def ab_test(experiment_name, user: nil)
       with_user(user) do
-        experiment_name = experiment_name.keys[0] if experiment_name.is_a? Hash
         experiment = ::Split::Experiment.new(experiment_name)
-        unless experiment.valid? || control
+        unless experiment.valid?
           raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not correctly defined in configuration."
         end
 
-        # at this point, it is either experiment exists in config or caller passes control
+        control_name = experiment.control.name
         begin
           alternative =
-            if control # backward compatibility
-              experiment.has_winner? ? experiment.winner.name : control_variable(control)
-            elsif ::Split.configuration.enabled
+            if ::Split.configuration.enabled
               experiment.save
               trial = Trial.new(ab_user, experiment, self)
               trial.choose!(override_alternative(experiment_name)).name
             else
-              control_variable(experiment.control)
+              control_name
             end
 
           ::Split.log(experiment_name, {
@@ -59,10 +56,10 @@ module Split
 
           if Split.configuration.db_failover_allow_parameter_override
             alternative = override_alternative(experiment_name) if override_present?(experiment_name)
-            alternative = control_variable(experiment.control) if split_generically_disabled?
+            alternative = control_name if split_generically_disabled?
           end
         ensure
-          alternative ||= control_variable(control || experiment.control)
+          alternative ||= control_name
         end
 
         if block_given?
@@ -263,10 +260,6 @@ module Split
         goal = nil
       end
       [experiment_name, goal]
-    end
-
-    def control_variable(control)
-      control.is_a?(Hash) ? control.keys.first.to_s : control.to_s
     end
   end
 end

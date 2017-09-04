@@ -57,13 +57,6 @@ describe Split::Configuration do
     expect(@config.persistence).to eq(Split::Persistence::SessionAdapter)
   end
 
-  it 'should load a metric' do
-    @config.experiments = { my_experiment: { alternatives: %w[control_opt other_opt], metric: :my_metric } }
-
-    expect(@config.metrics).not_to be_nil
-    expect(@config.metrics.keys).to eq([:my_metric])
-  end
-
   describe '#scores' do
     it 'should load the scores' do
       @config.experiments = {
@@ -208,11 +201,6 @@ describe Split::Configuration do
               scores: %w[score1 score3]
             )
           )
-        end
-
-        it 'should recognize metrics' do
-          expect(@config.metrics).not_to be_nil
-          expect(@config.metrics.keys).to eq([:my_metric])
         end
 
         it 'should recognize scores' do
