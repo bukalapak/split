@@ -9,10 +9,11 @@ module Split
 
     def with_user(user)
       return yield unless user
+      user_id = user.respond_to?(:id) ? user.id.to_s : user.to_s
       original_ab_user = @ab_user
       begin
         redis_adapter = Split::Persistence::RedisAdapter.with_config(
-          lookup_by: ->(context) { user&.id },
+          lookup_by: ->(context) { user_id },
           expire_seconds: 2_592_000
         ).new(self)
         @ab_user = User.new(self, redis_adapter)
