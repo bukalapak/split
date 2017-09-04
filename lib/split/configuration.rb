@@ -118,6 +118,7 @@ module Split
     end
 
     def scores
+      return @scores if defined?(@scores)
       @scores = {}
       return @scores unless experiments
       experiments.each do |experiment_name, experiment_data|
@@ -130,7 +131,7 @@ module Split
         scores.each do |score_name|
           next unless score_name
           @scores[score_name] ||= []
-          @scores[score_name] << Split::Experiment.new(experiment_name)
+          @scores[score_name] << experiment_name
         end
       end
       @scores

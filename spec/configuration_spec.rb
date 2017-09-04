@@ -69,7 +69,7 @@ describe Split::Configuration do
 
       expect(@config.scores).not_to be_nil
       expect(@config.scores.keys).to include 'score1'
-      expect(@config.scores['score1']).to include Split::ExperimentCatalog.find :my_experiment
+      expect(@config.scores['score1']).to include(:my_experiment)
     end
 
     it 'should return empty hash when no scores are defined' do
@@ -79,22 +79,6 @@ describe Split::Configuration do
         }
       }
       expect(@config.scores).to be_empty
-    end
-
-    context 'when an experiment is reset' do
-      it 'should reflect the changes the experiment mapped by a score' do
-        @config.experiments = {
-          my_experiment: {
-            alternatives: %w[alt1 alt2],
-            scores: ['score1']
-          }
-        }
-
-        experiment = Split::ExperimentCatalog.find_or_create(:my_experiment)
-        @config.scores['score1'].first.key # trigger memoization
-        experiment.reset
-        expect(@config.scores['score1'].first.key).to eq(experiment.key)
-      end
     end
   end
 
@@ -208,12 +192,9 @@ describe Split::Configuration do
           exp2 = Split::ExperimentCatalog.find_or_create(:another_experiment)
           expect(@config.scores).not_to be_nil
           expect(@config.scores.keys).to eq(%w[score1 score2 score3])
-          expect(@config.scores['score1'].count).to eq 2
-          expect(@config.scores['score1']).to include(exp1, exp2)
-          expect(@config.scores['score2'].count).to eq 1
-          expect(@config.scores['score2']).to include(exp1)
-          expect(@config.scores['score3'].count).to eq 1
-          expect(@config.scores['score3']).to include(exp2)
+          expect(@config.scores['score1']).to include(exp1.name, exp2.name)
+          expect(@config.scores['score2']).to include(exp1.name)
+          expect(@config.scores['score3']).to include(exp2.name)
         end
       end
     end

@@ -14,7 +14,8 @@ module Split
       def load_from_configuration(name)
         scores = Split.configuration.scores
         return nil unless scores && scores[name]
-        Split::Score.new(name, scores[name])
+        experiments = scores[name].map{ |e| ::Split::Experiment.new(e) }
+        Split::Score.new(name, experiments)
       end
 
       def find(name)
