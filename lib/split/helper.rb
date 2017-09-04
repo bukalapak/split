@@ -3,6 +3,7 @@
 module Split
   module Helper
     OVERRIDE_PARAM_NAME = 'ab_test'
+    require 'json'
 
     module_function
 
@@ -50,7 +51,7 @@ module Split
             event: 'ab_test',
             override: override_alternative(experiment_name),
             user: user&.id
-          })
+          }.to_json)
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
           raise(e) unless Split.configuration.db_failover
           Split.configuration.db_failover_on_db_error.call(e)
@@ -87,7 +88,7 @@ module Split
             event: 'ab_finished',
             reset: options[:reset],
             user: options[:user]&.id
-          })
+          }.to_json)
 
           res
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
@@ -138,7 +139,7 @@ module Split
             score_name: score_name,
             score_value: score_value,
             user: options[:user]&.id
-          })
+          }.to_json)
 
           res
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
@@ -165,7 +166,7 @@ module Split
             score_value: score_value,
             ttl: ttl,
             user: options[:user]&.id
-          })
+          }.to_json)
 
           res
         rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
@@ -183,7 +184,7 @@ module Split
         event: 'ab_apply_delayed_score',
         score_name: score_name,
         label: label
-      })
+      }.to_json)
 
       res
     rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
@@ -207,7 +208,7 @@ module Split
         alternative_name: alternative_name,
         score_name: score_name,
         score_value: score_value
-      })
+      }.to_json)
 
       res
     rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e

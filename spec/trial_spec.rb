@@ -72,7 +72,8 @@ describe Split::Trial do
     end
 
     def expect_alternative(trial, alternative_name, override = nil)
-      3.times do
+      alternative_name = [alternative_name] if alternative_name.is_a?(String)
+      1000.times do
         trial.choose!(override)
         expect(alternative_name).to include(trial.alternative.name)
       end
