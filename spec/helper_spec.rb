@@ -45,6 +45,16 @@ describe Split::Helper do
       end
       expect(ab_user.user.class.name).to eq('Split::Persistence::SessionAdapter')
     end
+
+    it 'should temporarily change redis adapter class config' do
+      Split::Persistence::RedisAdapter.reset_config!
+      ori = Split::Persistence::RedisAdapter.config.dup
+      with_user(given_user) do
+        expect(Split::Persistence::RedisAdapter.config).not_to eq(ori)
+        expect(Split::Persistence::RedisAdapter.config[:lookup_by].call(nil)).to eq(given_user.id.to_s)
+      end
+      expect(Split::Persistence::RedisAdapter.config).to eq(ori)
+    end
   end
 
   describe 'ab_test' do

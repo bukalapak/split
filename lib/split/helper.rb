@@ -11,7 +11,9 @@ module Split
       return yield unless user
       user_id = user.respond_to?(:id) ? user.id.to_s : user.to_s
       original_ab_user = @ab_user
+      original_config = Split::Persistence::RedisAdapter.instance_variable_get(:@config).dup
       begin
+        Split::Persistence::RedisAdapter.reset_config!
         redis_adapter = Split::Persistence::RedisAdapter.with_config(
           lookup_by: ->(context) { user_id },
           expire_seconds: 2_592_000
@@ -23,6 +25,7 @@ module Split
         raise unless Split.configuration.db_failover
         Split.configuration.db_failover_on_db_error.call(e)
       ensure
+        Split::Persistence::RedisAdapter.instance_variable_set(:@config, original_config)
         @ab_user = original_ab_user
       end
     end
