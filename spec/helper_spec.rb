@@ -41,6 +41,16 @@ describe Split::Helper do
       end
       expect(ab_user.user.class.name).to eq('Split::Persistence::SessionAdapter')
     end
+
+    context 'with nil user and called as module function' do
+      it 'should not do anything' do
+        expect(given_user).not_to receive(:id)
+        ret = Split::Helper.with_user(nil) do |_|
+          given_user.id
+        end
+        expect(ret).to eq(nil)
+      end
+    end
   end
 
   describe 'ab_test' do

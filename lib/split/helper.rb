@@ -8,7 +8,7 @@ module Split
     module_function
 
     def with_user(user)
-      return yield(ab_user) unless user
+      return (self == Split::Helper ? nil : yield(ab_user)) unless user
 
       begin
         user_id = user.respond_to?(:id) ? user.id.to_s : user.to_s
