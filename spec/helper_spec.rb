@@ -33,26 +33,13 @@ describe Split::Helper do
   describe '.with_user' do
     let(:given_user) { double('given_user', id: 2) }
 
-    before(:example) do
-      allow(given_user).to receive(:try).with(Symbol) { |method_name| given_user.send(method_name) }
-    end
-
     it 'should temporarily use redis adapter as current user persistence scheme' do
       expect(ab_user.user.class.name).to eq('Split::Persistence::SessionAdapter')
-      with_user(given_user) do
+      with_user(given_user) do |ab_user|
         expect(ab_user.user.class.name).to eq('Split::Persistence::RedisAdapter')
         expect(ab_user.user.redis_key).to eq("persistence:#{given_user.id}")
       end
       expect(ab_user.user.class.name).to eq('Split::Persistence::SessionAdapter')
-    end
-
-    it 'should not change redis adapter class config' do
-      ori = Split::Persistence::RedisAdapter.config
-      with_user(given_user) do
-        expect(Split::Persistence::RedisAdapter.config).to eq(ori)
-        expect(ab_user.user.redis_key).to eq("persistence:#{given_user.id}")
-      end
-      expect(Split::Persistence::RedisAdapter.config).to eq(ori)
     end
   end
 

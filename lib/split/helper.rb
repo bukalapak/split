@@ -8,24 +8,20 @@ module Split
     module_function
 
     def with_user(user)
-      return yield unless user
-      user_id = user.respond_to?(:id) ? user.id.to_s : user.to_s
-      original_ab_user = @ab_user
-      begin
-        adapter = Split::Persistence::RedisAdapter.new(self, user_id)
-        @ab_user = User.new(self, adapter)
+      return yield(ab_user) unless user
 
-        yield
+      begin
+        user_id = user.respond_to?(:id) ? user.id.to_s : user.to_s
+        adapter = Split::Persistence::RedisAdapter.new(self, user_id)
+        yield(User.new(self, adapter))
       rescue Errno::ECONNREFUSED, Redis::BaseError, SocketError => e
         raise unless Split.configuration.db_failover
         Split.configuration.db_failover_on_db_error.call(e)
-      ensure
-        @ab_user = original_ab_user
       end
     end
 
     def ab_test(experiment_name, user: nil)
-      with_user(user) do
+      with_user(user) do |ab_user|
         experiment = ::Split::Experiment.new(experiment_name)
         unless experiment.valid?
           raise ::Split::ExperimentNotFound, "Experiment #{experiment_name} not correctly defined in configuration."
@@ -69,7 +65,7 @@ module Split
     end
 
     def ab_finished(metric_descriptor, options = { user: nil })
-      with_user(options[:user]) do
+      with_user(options[:user]) do |ab_user|
         return if exclude_visitor? || Split.configuration.disabled?
         begin
           experiment_name, goal = normalize_metric(metric_descriptor)
@@ -94,7 +90,7 @@ module Split
     end
 
     def ab_test_result(experiment_name, options = { user: nil })
-      with_user(options[:user]) do
+      with_user(options[:user]) do |ab_user|
         return if exclude_visitor? || Split.configuration.disabled?
         begin
           experiment = ExperimentCatalog.find(experiment_name)
@@ -108,7 +104,7 @@ module Split
     end
 
     def unscored_user_experiments(score_name, options = { user: nil })
-      with_user(options[:user]) do
+      with_user(options[:user]) do |ab_user|
         Score.possible_experiments(score_name).reject do |experiment|
           experiment.has_winner? || ab_user[experiment.scored_key(score_name)] || !ab_user[experiment.key]
         end
@@ -116,11 +112,11 @@ module Split
     end
 
     def ab_score(score_name, score_value = 1, options = { user: nil })
-      with_user(options[:user]) do
+      with_user(options[:user]) do |ab_user|
         return if exclude_visitor? || Split.configuration.disabled?
         begin
           score_name = score_name.to_s
-          trials = unscored_user_experiments(score_name).map do |experiment|
+          trials = unscored_user_experiments(score_name, user: options[:user]).map do |experiment|
             Trial.new(ab_user, experiment, self)
           end
           res = Split.redis.pipelined do
@@ -145,11 +141,11 @@ module Split
     end
 
     def ab_add_delayed_score(score_name, label, score_value = 1, ttl = 60 * 60 * 24, options = { user: nil })
-      with_user(options[:user]) do
+      with_user(options[:user]) do |ab_user|
         return if exclude_visitor? || Split.configuration.disabled?
         begin
           score_name = score_name.to_s
-          trials = unscored_user_experiments(score_name).map do |experiment|
+          trials = unscored_user_experiments(score_name, user: options[:user]).map do |experiment|
             Trial.new(ab_user, experiment, self)
           end
           res = Score.add_delayed(score_name, label, trials, score_value, ttl)
