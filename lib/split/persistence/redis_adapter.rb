@@ -21,6 +21,7 @@ module Split
         else
           raise 'Please configure lookup_by'
         end
+        redis_data
       end
 
       def [](field)

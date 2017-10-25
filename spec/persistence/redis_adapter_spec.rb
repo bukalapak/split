@@ -7,6 +7,15 @@ describe Split::Persistence::RedisAdapter do
 
   subject { Split::Persistence::RedisAdapter.new(context) }
 
+  describe '#initialize' do
+    let(:key) { '123' }
+    before { @adapter = Split::Persistence::RedisAdapter.new(nil, '123') }
+    it 'should load redis data immediately' do
+      expect(Split).not_to receive(:redis)
+      @adapter['test']
+    end
+  end
+
   describe '#redis_key' do
     before { Split::Persistence::RedisAdapter.reset_config! }
 
